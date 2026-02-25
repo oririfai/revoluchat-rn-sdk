@@ -1,0 +1,74 @@
+site_name: Revoluchat RN SDK
+site_url: https://docs.revoluchat.io
+site_author: Revolu Team
+site_description: Enterprise-grade Realtime Chat SDK for React Native
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  palette:
+    # Palette toggle for light mode
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: deep purple
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Introduction: guides/introduction.md
+      - Installation: guides/installation.md
+      - Quick Start: guides/quick-start.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Dependency Injection: architecture/di.md
+      - State Management: architecture/state.md
+  - API Reference:
+      - RevoluchatProvider: api/provider.md
+      - ChatClient: api/client.md
+      - Hooks: api/hooks.md
+  - Components:
+      - Overview: components/overview.md
+      - Avatar: components/avatar.md
+      - ChannelList: components/channel-list.md
+      - MessageList: components/message-list.md
+      - MessageInput: components/message-input.md
+  - Advanced:
+      - Push Notifications: guides/notifications.md
+      - Media Uploads: guides/media.md
