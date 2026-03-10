@@ -12,6 +12,7 @@ import { useChannels } from '../hooks';
 import { Channel } from '../../domain/entities/Channel';
 
 import { Avatar } from './Avatar';
+import { relativeDate } from '../../utils/dateFormatter';
 
 interface ChannelListProps {
   onChannelPress?: (channel: Channel) => void;
@@ -59,10 +60,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   },
                 ]}
               >
-                {new Date(lastMsg.createdAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {relativeDate(lastMsg.createdAt)}
               </Text>
             )}
           </View>
@@ -94,6 +92,19 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       </TouchableOpacity>
     );
   };
+
+  if (channels.length === 0) {
+    return (
+      <View style={[styles.emptyContainer, { backgroundColor: theme.colors.background }]}>
+        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+          No conversations found.
+        </Text>
+        <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+          Tap the + button to start a demo chat.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <FlatList
@@ -154,5 +165,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '700',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: 'center',
+    opacity: 0.7,
   },
 });

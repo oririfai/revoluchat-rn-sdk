@@ -35,7 +35,16 @@ export const useConnectionStatus = () => {
  * Hook to get the list of channels.
  */
 export const useChannels = () => {
-    return useChatStore((state: any) => state.channels);
+    const { client } = useRevoluchat();
+    const channels = useChatStore((state: any) => state.channels);
+
+    useEffect(() => {
+        if (channels.length === 0) {
+            client.getConversations();
+        }
+    }, [client, channels.length]);
+
+    return channels;
 };
 
 
@@ -57,3 +66,5 @@ export const usePresence = (roomId: string) => {
 
     return presences;
 };
+
+export * from './useCallControls';

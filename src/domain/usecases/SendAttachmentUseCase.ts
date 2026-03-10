@@ -7,18 +7,21 @@ interface SendAttachmentParams {
     file: { uri: string; name: string; type: string };
     config: TenantConfig;
     userId: string;
+    text?: string;
 }
 
 export class SendAttachmentUseCase implements UseCase<void, SendAttachmentParams> {
     constructor(private chatRepository: ChatRepository) { }
 
-    async execute({ roomId, file, config, userId }: SendAttachmentParams): Promise<void> {
+    async execute({ roomId, file, config, userId, text }: SendAttachmentParams): Promise<void> {
         try {
             // 1. Upload the file
             const uploadResult = await this.chatRepository.uploadMedia(file, config);
 
             // 2. Send the message with attachment info
             const messagePayload = {
+                body: text,
+                type: 'attachment',
                 attachments: [
                     {
                         id: Math.random().toString(36).substr(2, 9),

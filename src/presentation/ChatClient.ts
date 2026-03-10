@@ -6,6 +6,7 @@ import { SendMessageUseCase } from '../domain/usecases/SendMessageUseCase';
 import { JoinRoomUseCase } from '../domain/usecases/JoinRoomUseCase';
 import { SendAttachmentUseCase } from '../domain/usecases/SendAttachmentUseCase';
 import { MarkAsReadUseCase } from '../domain/usecases/MarkAsReadUseCase';
+import { GetConversationsUseCase } from '../domain/usecases/GetConversationsUseCase';
 
 export class ChatClient {
     private static instance: ChatClient;
@@ -18,6 +19,7 @@ export class ChatClient {
     private joinRoomUseCase: JoinRoomUseCase;
     private sendAttachmentUseCase: SendAttachmentUseCase;
     private markAsReadUseCase: MarkAsReadUseCase;
+    private getConversationsUseCase: GetConversationsUseCase;
 
     private constructor() {
         this.socketClient = DI.socketClient;
@@ -25,6 +27,7 @@ export class ChatClient {
         this.joinRoomUseCase = DI.inviteJoinRoom();
         this.sendAttachmentUseCase = DI.inviteSendAttachment();
         this.markAsReadUseCase = DI.inviteMarkAsRead();
+        this.getConversationsUseCase = DI.inviteGetConversations();
     }
 
 
@@ -59,10 +62,18 @@ export class ChatClient {
 
     public async sendAttachment(
         roomId: string,
-        file: { uri: string; name: string; type: string }
+        file: { uri: string; name: string; type: string },
+        text?: string
     ): Promise<void> {
         if (!this.config || !this.userId) throw new Error('Client not initialized');
-        return this.sendAttachmentUseCase.execute({ roomId, file, config: this.config, userId: this.userId });
+        return this.sendAttachmentUseCase.execute({ roomId, file, config: this.config, userId: this.userId, text });
+    }
+
+    public async getConversations(search?: string): Promise<any> {
+        if (!this.config) throw new Error('Client not initialized');
+        const channels = await this.getConversationsUseCase.execute({ config: this.config, search });
+        useChatStore.getState().setChannels(channels);
+        return channels;
     }
 
     public getPresences(roomId: string): any[] {

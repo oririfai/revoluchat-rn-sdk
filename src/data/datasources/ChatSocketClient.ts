@@ -5,6 +5,8 @@ export class ChatSocketClient {
     private socket: Socket | null = null;
     private roomChannels: Map<string, Channel> = new Map();
     private presences: Map<string, any> = new Map();
+    private appId: string | null = null;
+    private pendingJoins: Set<{ roomId: string; onMessage: (msg: any) => void; onCall?: (event: string, payload: any) => void }> = new Set();
 
     public isConnected: boolean = false;
 
@@ -21,6 +23,8 @@ export class ChatSocketClient {
             user_id: userId,
         };
 
+        this.appId = config.appId;
+
         // Initialize Phoenix socket
         this.socket = new Socket(config.socketUrl, {
             params,
@@ -33,6 +37,13 @@ export class ChatSocketClient {
         this.socket.onOpen(() => {
             this.isConnected = true;
             console.log(`[Revoluchat SDK] Socket connected for tenant ${config.tenantId}`);
+
+            // Process pending joins
+            this.pendingJoins.forEach(join => {
+                console.log(`[Revoluchat SDK] Processing pending join for room ${join.roomId}`);
+                this.joinRoom(join.roomId, join.onMessage, join.onCall);
+            });
+            this.pendingJoins.clear();
         });
 
         this.socket.onClose(() => {
@@ -47,16 +58,19 @@ export class ChatSocketClient {
         this.socket.connect();
     }
 
-    public joinRoom(roomId: string, onMessage: (msg: any) => void): Channel {
-        if (!this.socket) {
-            throw new Error('Socket not connected');
+    public joinRoom(roomId: string, onMessage: (msg: any) => void, onCall?: (event: string, payload: any) => void): Channel | null {
+        if (!this.socket || !this.isConnected) {
+            console.warn(`[Revoluchat SDK] Socket not ready. Queueing join for room ${roomId}`);
+            this.pendingJoins.add({ roomId, onMessage, onCall });
+            return null;
         }
 
         if (this.roomChannels.has(roomId)) {
             return this.roomChannels.get(roomId)!;
         }
 
-        const roomChannel = this.socket.channel(`room:${roomId}`, {});
+        const topic = `tenant:${this.appId}:room:${roomId}`;
+        const roomChannel = this.socket.channel(topic, {});
 
         roomChannel.join()
             .receive('ok', resp => {
@@ -76,6 +90,22 @@ export class ChatSocketClient {
 
         roomChannel.on('new_message', payload => {
             onMessage(payload);
+        });
+
+        // --- RTC SIGNALING EVENTS ---
+        const callEvents = [
+            'call:incoming',
+            'call:ringing',
+            'call:accepted',
+            'call:rejected',
+            'call:signal',
+            'call:hangup'
+        ];
+
+        callEvents.forEach(event => {
+            roomChannel.on(event, (payload) => {
+                if (onCall) onCall(event, payload);
+            });
         });
 
         roomChannel.on('read_receipt', payload => {
@@ -105,6 +135,21 @@ export class ChatSocketClient {
         if (channel) {
             channel.push('message_read', { message_id: messageId });
         }
+    }
+
+    public sendCallSignal(roomId: string, event: string, payload: any): Promise<any> {
+        return new Promise((resolve, reject) => {
+            const channel = this.roomChannels.get(roomId);
+            if (!channel) {
+                reject(new Error(`Not joined to room ${roomId}`));
+                return;
+            }
+
+            channel.push(event, payload)
+                .receive('ok', (resp) => resolve(resp))
+                .receive('error', (reasons) => reject(reasons))
+                .receive('timeout', () => reject(new Error('Signaling timeout')));
+        });
     }
 
 

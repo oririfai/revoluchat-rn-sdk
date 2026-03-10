@@ -18,7 +18,7 @@ export class ChatRepositoryImpl implements ChatRepository {
         this.socketClient.disconnect();
     }
 
-    joinRoom(roomId: string, onMessage: (msg: any) => void): PhoenixChannel {
+    joinRoom(roomId: string, onMessage: (msg: any) => void): PhoenixChannel | null {
         return this.socketClient.joinRoom(roomId, onMessage);
     }
 
@@ -43,5 +43,29 @@ export class ChatRepositoryImpl implements ChatRepository {
             file,
             config.authToken || ''
         );
+    }
+
+    async getConversations(
+        config: TenantConfig,
+        search?: string
+    ): Promise<any> {
+        let url = `${config.baseUrl}/api/v1/conversations`;
+        if (search) {
+            url += `?search=${encodeURIComponent(search)}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${config.authToken}`,
+                'x-tenant-id': config.tenantId,
+                'x-app-id': config.appId
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch conversations: ${response.statusText}`);
+        }
+
+        return await response.json();
     }
 }

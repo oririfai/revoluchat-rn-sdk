@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { MMKV } from 'react-native-mmkv';
 import { Channel } from '../../domain/entities/Channel';
 import { Message } from '../../domain/entities/Message';
+import { CallSession } from '../../domain/entities/Call';
 
 const storage = new MMKV();
 
@@ -17,12 +18,14 @@ export interface ChatState {
     channels: Channel[];
     messagesByChannel: Record<string, Message[]>;
     connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+    activeCall: CallSession | null;
 
     setChannels: (channels: Channel[]) => void;
     updateChannel: (channel: Partial<Channel> & { id: string }) => void;
     addMessage: (channelId: string, message: Message) => void;
     updateMessageStatus: (channelId: string, messageId: string, status: Message['status']) => void;
     setConnectionStatus: (status: ChatState['connectionStatus']) => void;
+    setActiveCall: (call: CallSession | null) => void;
 }
 
 
@@ -32,6 +35,7 @@ export const useChatStore = create<ChatState>()(
             channels: [],
             messagesByChannel: {},
             connectionStatus: 'disconnected',
+            activeCall: null,
 
             setChannels: (channels) => set({ channels }),
 
@@ -57,6 +61,8 @@ export const useChatStore = create<ChatState>()(
 
             setConnectionStatus: (status) => set({ connectionStatus: status }),
 
+            setActiveCall: (call) => set({ activeCall: call }),
+
             updateMessageStatus: (channelId, messageId, status) => set((state) => {
                 const messages = state.messagesByChannel[channelId] || [];
                 return {
@@ -73,6 +79,7 @@ export const useChatStore = create<ChatState>()(
             partialize: (state) => ({
                 channels: state.channels,
                 messagesByChannel: state.messagesByChannel,
+                // activeCall is NOT persisted for security and UX reasons (calls shouldn't survive app restart)
             }),
         }
     )

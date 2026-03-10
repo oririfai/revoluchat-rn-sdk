@@ -6,6 +6,7 @@ import { RevoluchatTheme, defaultTheme } from './theme';
 
 interface RevoluchatContextType {
   client: ChatClient;
+  userId: string;
   connectionStatus: string;
   theme: RevoluchatTheme;
 }
@@ -44,7 +45,7 @@ export const RevoluchatProvider: React.FC<RevoluchatProviderProps> = ({
   }, [client, config, userId]);
 
   return (
-    <RevoluchatContext.Provider value={{ client, connectionStatus, theme }}>
+    <RevoluchatContext.Provider value={{ client, userId, connectionStatus, theme }}>
       {children}
     </RevoluchatContext.Provider>
   );

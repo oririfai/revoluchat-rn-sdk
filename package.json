@@ -22,7 +22,7 @@
     "phoenix",
     "revoluchat"
   ],
-  "author": "Revoluchat Team <dev@revolu.com> (https://revolu.com)",
+  "author": "Revoluchat Team <dev@revolu.id> (https://revolu.id)",
   "license": "MIT",
   "peerDependencies": {
     "react": "*",
@@ -31,6 +31,7 @@
   "dependencies": {
     "phoenix": "^1.7.11",
     "react-native-mmkv": "^2.12.2",
+    "react-native-webrtc": "^124.0.5",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0",
     "zustand": "^4.5.2"

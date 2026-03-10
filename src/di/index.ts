@@ -6,6 +6,7 @@ import { SendMessageUseCase } from '../domain/usecases/SendMessageUseCase';
 import { JoinRoomUseCase } from '../domain/usecases/JoinRoomUseCase';
 import { SendAttachmentUseCase } from '../domain/usecases/SendAttachmentUseCase';
 import { MarkAsReadUseCase } from '../domain/usecases/MarkAsReadUseCase';
+import { GetConversationsUseCase } from '../domain/usecases/GetConversationsUseCase';
 
 /**
  * Simple Dependency Injection Container / Service Locator.
@@ -48,5 +49,9 @@ export class DI {
 
     static inviteMarkAsRead(): MarkAsReadUseCase {
         return new MarkAsReadUseCase(this.repository);
+    }
+
+    static inviteGetConversations(): GetConversationsUseCase {
+        return new GetConversationsUseCase(this.repository);
     }
 }

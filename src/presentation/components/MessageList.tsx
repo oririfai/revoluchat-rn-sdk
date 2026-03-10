@@ -21,12 +21,23 @@ export const MessageList: React.FC<MessageListProps> = ({
   renderMessage,
 }) => {
   const { messages } = useMessages(roomId);
-  const { theme } = useRevoluchat();
-  // For demo, we assume the user ID is accessible via some internal state or we just use a placeholder
-  // In a real app, the client would know its own userId
-  const myUserId = 'current-user-id'; 
+  const { theme, userId } = useRevoluchat();
+  const myUserId = userId; 
 
   const defaultRenderItem: ListRenderItem<Message> = ({ item }) => {
+    if (item.type === 'system_call_summary') {
+            return (
+                <View style={styles.systemBubbleContainer}>
+                    <View style={[styles.systemBubble, { backgroundColor: theme.colors.background, borderColor: theme.colors.textSecondary + '40', borderRadius: theme.roundness * 2 }]}>
+                        <Text style={[styles.systemText, { color: theme.colors.textSecondary }]}>
+                            {item.metadata?.call_type === 'video' ? '📹 ' : '📞 '}
+                            {item.text}
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
     const isMe = item.sender.id === myUserId;
 
     return (
@@ -50,14 +61,27 @@ export const MessageList: React.FC<MessageListProps> = ({
             },
           ]}
         >
-          <Text
-            style={[
-              styles.messageText,
-              { color: isMe ? '#FFFFFF' : theme.colors.text },
-            ]}
-          >
-            {item.text}
-          </Text>
+          {item.attachments && item.attachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              {item.attachments.map((att) => (
+                <View key={att.id} style={styles.attachmentItem}>
+                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 12 }}>
+                    📎 {att.name} ({att.type})
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+          {item.text && (
+            <Text
+              style={[
+                styles.messageText,
+                { color: isMe ? '#FFFFFF' : theme.colors.text },
+              ]}
+            >
+              {item.text}
+            </Text>
+          )}
         </View>
         <View style={styles.metaRow}>
           <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
@@ -67,9 +91,19 @@ export const MessageList: React.FC<MessageListProps> = ({
             })}
           </Text>
           {isMe && (
-            <Text style={[styles.status, { color: item.status === 'read' ? theme.colors.primary : theme.colors.textSecondary }]}>
-              {item.status === 'read' ? '✓✓' : '✓'}
-            </Text>
+            <View style={styles.statusContainer}>
+              {item.status === 'read' ? (
+                <Text style={[styles.status, { color: theme.colors.primary }]}>✓✓</Text>
+              ) : item.status === 'delivered' ? (
+                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>✓✓</Text>
+              ) : item.status === 'sent' ? (
+                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>✓</Text>
+              ) : item.status === 'failed' ? (
+                <Text style={[styles.status, { color: theme.colors.error || '#FF3B30' }]}>!</Text>
+              ) : (
+                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>...</Text>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -128,7 +162,33 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 10,
+    fontWeight: 'bold',
+  },
+  statusContainer: {
     marginLeft: 4,
+  },
+  attachmentsContainer: {
+    marginBottom: 4,
+  },
+  attachmentItem: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 6,
+    borderRadius: 4,
+    marginBottom: 2,
+  },
+  systemBubbleContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  systemBubble: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+  },
+  systemText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 
