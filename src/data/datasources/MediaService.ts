@@ -19,7 +19,8 @@ export class MediaService {
     public async upload(
         endpoint: string,
         file: { uri: string; name: string; type: string },
-        authToken: string
+        authToken: string,
+        apiKey: string
     ): Promise<{ url: string; type: string }> {
         const formData = new FormData();
         formData.append('file', file as any);
@@ -29,6 +30,7 @@ export class MediaService {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${authToken}`,
+                    'X-API-KEY': apiKey,
                     'Accept': 'application/json',
                     'Content-Type': 'multipart/form-data',
                 },

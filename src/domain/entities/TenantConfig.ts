@@ -3,6 +3,7 @@ export interface TenantConfig {
     appId: string;
     baseUrl: string;
     socketUrl: string;
+    apiKey: string;
     authToken?: string;
     heartbeatIntervalMs?: number;
     reconnectAfterMs?: (tries: number) => number;

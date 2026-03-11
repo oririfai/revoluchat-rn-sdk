@@ -41,7 +41,8 @@ export class ChatRepositoryImpl implements ChatRepository {
         return this.mediaService.upload(
             `${config.baseUrl}/uploads`,
             file,
-            config.authToken || ''
+            config.authToken || '',
+            config.apiKey
         );
     }
 
@@ -57,6 +58,7 @@ export class ChatRepositoryImpl implements ChatRepository {
         const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${config.authToken}`,
+                'X-API-KEY': config.apiKey,
                 'x-tenant-id': config.tenantId,
                 'x-app-id': config.appId
             }

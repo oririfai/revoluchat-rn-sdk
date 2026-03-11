@@ -20,6 +20,7 @@ export class ChatSocketClient {
             tenant_id: config.tenantId,
             app_id: config.appId,
             token: config.authToken,
+            api_key: config.apiKey,
             user_id: userId,
         };
 
