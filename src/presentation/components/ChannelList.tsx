@@ -23,18 +23,23 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onChannelPress,
   renderItem,
 }) => {
-  const channels = useChannels();
-  const { theme } = useRevoluchat();
+  const { channels } = useChannels();
+  const { theme, userId } = useRevoluchat();
 
   const defaultRenderItem: ListRenderItem<Channel> = ({ item }) => {
     const lastMsg = item.lastMessage;
+    const otherMember = item.type === 'direct' 
+      ? item.members.find(m => m.id?.toString() !== userId?.toString()) 
+      : null;
+    const displayAvatar = item.type === 'direct' ? otherMember?.avatarUrl : item.members[0]?.avatarUrl;
+    const displayName = item.type === 'direct' ? (otherMember?.name || item.name) : item.name;
     
     return (
       <TouchableOpacity
         style={[styles.itemContainer, { borderBottomColor: theme.colors.border }]}
         onPress={() => onChannelPress?.(item)}
       >
-        <Avatar name={item.name} uri={item.members[0]?.avatarUrl} />
+        <Avatar name={displayName} uri={displayAvatar} />
         <View style={styles.textContainer}>
           <View style={styles.headerRow}>
             <Text
@@ -48,7 +53,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
               ]}
               numberOfLines={1}
             >
-              {item.name || 'Group Chat'}
+              {displayName || (item.type === 'direct' ? 'Direct Message' : 'Group Chat')}
             </Text>
             {lastMsg && (
               <Text
@@ -60,7 +65,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   },
                 ]}
               >
-                {relativeDate(lastMsg.createdAt)}
+                {lastMsg.displayTime || relativeDate(lastMsg.createdAt)}
               </Text>
             )}
           </View>

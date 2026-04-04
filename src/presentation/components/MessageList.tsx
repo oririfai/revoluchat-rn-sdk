@@ -5,11 +5,14 @@ import {
   Text,
   StyleSheet,
   ListRenderItem,
+  Image,
 } from 'react-native';
 import { useMessages } from '../hooks';
 import { useRevoluchat } from '../RevoluchatProvider';
 import { Message } from '../../domain/entities/Message';
 
+
+import { ImageGrid } from './ImageGrid';
 
 interface MessageListProps {
   roomId: string;
@@ -24,7 +27,59 @@ export const MessageList: React.FC<MessageListProps> = ({
   const { theme, userId } = useRevoluchat();
   const myUserId = userId; 
 
-  const defaultRenderItem: ListRenderItem<Message> = ({ item }) => {
+  const formatDateSeparator = (date: Date) => {
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'long', 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    };
+    return date.toLocaleDateString('id-ID', options);
+  };
+
+  const groupMessagesByDate = (messages: Message[]) => {
+    if (messages.length === 0) return [];
+    
+    const sortedMessages = [...messages].sort((a, b) => 
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    const items: (Message | { id: string; type: 'date_separator'; date: Date })[] = [];
+    let lastDate = '';
+
+    sortedMessages.forEach((msg) => {
+      const msgDate = new Date(msg.createdAt);
+      const dateStr = msgDate.toDateString();
+
+      if (dateStr !== lastDate) {
+        items.push({
+          id: `date-${dateStr}`,
+          type: 'date_separator',
+          date: msgDate
+        });
+        lastDate = dateStr;
+      }
+      items.push(msg);
+    });
+
+    return items;
+  };
+
+  const processedItems = groupMessagesByDate(messages);
+
+  const defaultRenderItem: ListRenderItem<any> = ({ item }) => {
+    if (item.type === 'date_separator') {
+      return (
+        <View style={styles.dateSeparatorContainer}>
+          <View style={[styles.dateSeparator, { backgroundColor: theme.colors.surface }]}>
+            <Text style={[styles.dateSeparatorText, { color: theme.colors.textSecondary }]}>
+              {formatDateSeparator(item.date)}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     if (item.type === 'system_call_summary') {
             return (
                 <View style={styles.systemBubbleContainer}>
@@ -39,6 +94,10 @@ export const MessageList: React.FC<MessageListProps> = ({
         }
 
     const isMe = item.sender.id === myUserId;
+    const imageAttachments = item.attachments?.filter((a: any) => a.type === 'image') || [];
+    const audioAttachments = item.attachments?.filter((a: any) => a.type === 'audio') || [];
+    const videoAttachments = item.attachments?.filter((a: any) => a.type === 'video') || [];
+    const otherAttachments = item.attachments?.filter((a: any) => !['image', 'audio', 'video'].includes(a.type)) || [];
 
     return (
       <View
@@ -58,25 +117,60 @@ export const MessageList: React.FC<MessageListProps> = ({
             {
               borderRadius: theme.roundness,
               backgroundColor: isMe ? theme.colors.bubbleUser : theme.colors.bubbleOther,
+              padding: (imageAttachments.length > 0 || audioAttachments.length > 0 || videoAttachments.length > 0) && !item.text ? 4 : 12,
             },
           ]}
         >
-          {item.attachments && item.attachments.length > 0 && (
+          {imageAttachments.length > 0 && (
+            <View style={styles.mediaContainer}>
+              <ImageGrid images={imageAttachments} />
+            </View>
+          )}
+
+          {audioAttachments.length > 0 && (
             <View style={styles.attachmentsContainer}>
-              {item.attachments.map((att) => (
+              {audioAttachments.map((att: any) => (
                 <View key={att.id} style={styles.attachmentItem}>
-                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 12 }}>
-                    📎 {att.name} ({att.type})
+                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
+                    🎵 Rekaman Suara: {att.name || 'Voice Message'}
                   </Text>
                 </View>
               ))}
             </View>
           )}
+
+          {videoAttachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              {videoAttachments.map((att: any) => (
+                <View key={att.id} style={styles.attachmentItem}>
+                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
+                    🎥 Video: {att.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {otherAttachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              {otherAttachments.map((att: any) => (
+                <View key={att.id} style={styles.attachmentItem}>
+                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
+                    📎 {att.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {item.text && (
             <Text
               style={[
                 styles.messageText,
-                { color: isMe ? '#FFFFFF' : theme.colors.text },
+                { 
+                    color: isMe ? '#FFFFFF' : theme.colors.text,
+                    marginTop: imageAttachments.length > 0 || otherAttachments.length > 0 ? 8 : 0
+                },
               ]}
             >
               {item.text}
@@ -85,23 +179,29 @@ export const MessageList: React.FC<MessageListProps> = ({
         </View>
         <View style={styles.metaRow}>
           <Text style={[styles.timestamp, { color: theme.colors.textSecondary }]}>
-            {new Date(item.createdAt).toLocaleTimeString([], {
+            {item.displayTime || new Date(item.createdAt).toLocaleTimeString('id-ID', {
               hour: '2-digit',
               minute: '2-digit',
+              hour12: false
             })}
           </Text>
           {isMe && (
             <View style={styles.statusContainer}>
               {item.status === 'read' ? (
-                <Text style={[styles.status, { color: theme.colors.primary }]}>✓✓</Text>
-              ) : item.status === 'delivered' ? (
-                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>✓✓</Text>
-              ) : item.status === 'sent' ? (
-                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>✓</Text>
+                <Image 
+                  source={require('../../../assets/readed.png')} 
+                  style={styles.statusIcon} 
+                />
               ) : item.status === 'failed' ? (
-                <Text style={[styles.status, { color: theme.colors.error || '#FF3B30' }]}>!</Text>
+                <Image 
+                  source={require('../../../assets/error.png')} 
+                  style={styles.statusIcon} 
+                />
               ) : (
-                <Text style={[styles.status, { color: theme.colors.textSecondary }]}>...</Text>
+                <Image 
+                  source={require('../../../assets/unread.png')} 
+                  style={styles.statusIcon} 
+                />
               )}
             </View>
           )}
@@ -113,7 +213,7 @@ export const MessageList: React.FC<MessageListProps> = ({
 
   return (
     <FlatList
-      data={[...messages].reverse()} // Inverted list expects newest first
+      data={[...processedItems].reverse() as any[]} // Inverted list expects newest first
       renderItem={renderMessage || defaultRenderItem}
       keyExtractor={(item) => item.id}
       inverted
@@ -126,6 +226,19 @@ export const MessageList: React.FC<MessageListProps> = ({
 const styles = StyleSheet.create({
   listContent: {
     padding: 16,
+  },
+  dateSeparatorContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dateSeparator: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  dateSeparatorText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   bubbleContainer: {
     marginBottom: 12,
@@ -164,11 +277,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
+  statusIcon: {
+    width: 14,
+    height: 14,
+    resizeMode: 'contain',
+  },
   statusContainer: {
     marginLeft: 4,
   },
   attachmentsContainer: {
     marginBottom: 4,
+  },
+  mediaContainer: {
+    marginBottom: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   attachmentItem: {
     backgroundColor: 'rgba(0,0,0,0.05)',

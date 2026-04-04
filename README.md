@@ -1,6 +1,8 @@
 # Revoluchat React Native SDK 🚀
 
-The official React Native SDK for **Revoluchat**, an enterprise-grade, multi-tenant real-time chat platform. Built with a **Clean Architecture** mindset, this SDK offers both a headless logic layer (Hooks) and a set of beautiful, customizable UI components.
+**Version**: `v1.2.0` (JWT Auto-Refresh & Secure Auth Support)
+
+The official React Native SDK for **Revoluchat**, an enterprise-grade, multi-tenant real-time chat platform. Built with a **Clean Architecture** mindset, offering both a headless logic layer (Hooks) and ready-made UI components.
 
 [![npm version](https://img.shields.io/npm/v/revoluchat-rn-sdk.svg?style=flat-square)](https://www.npmjs.com/package/revoluchat-rn-sdk)
 [![license](https://img.shields.io/npm/l/revoluchat-rn-sdk.svg?style=flat-square)](LICENSE)
@@ -8,13 +10,19 @@ The official React Native SDK for **Revoluchat**, an enterprise-grade, multi-ten
 ## ✨ Features
 
 - **Real-time Engine**: Powered by Phoenix Channels for instant message delivery and presence tracking.
-- **Enterprise Ready**: Seamless support for multi-tenant configurations (`tenantId`, `appId`).
-- **Offline First**: High-performance caching using `react-native-mmkv` for instant loading.
-- **Clean Architecture**: Strictly separated layers (Domain, Data, Presentation) for high maintainability.
-- **Headless Hooks**: Logic-only hooks (`useChannels`, `useMessages`) for building custom UIs.
-- **UI Components**: Out-of-the-box components (`ChannelList`, `MessageList`, `MessageInput`).
+- **Presence & Online Status**: Real-time "Online/Offline" indicators for chat partners.
+- **Chat Header**: Ready-to-use `ChatHeader` with partner photo, name, status, and call buttons.
+- **Date Separators**: Automatic "Day, Date, Year" separators in `MessageList`.
+- **Read Receipts**: Visual status indicators using optimized PNG assets (Unread, Read, Failed).
+- **JWT Token Lifecycle**: Automatic expiry detection, refresh scheduling, and seamless socket reconnection.
+- **OIDC Compatible**: Fully compatible with RS256 JWT tokens.
+- **Enterprise Ready**: Multi-tenant configurations (`tenantId`, `appId`, `apiKey`).
+- **Offline First**: High-performance caching using `react-native-mmkv`.
+- **Clean Architecture**: Strictly separated layers (Domain, Data, Presentation).
+- **Headless Hooks**: `useChannels`, `useMessages`, `useChannel`, `usePresence` for custom UIs.
+- **UI Components**: `ChatHeader`, `ChannelList`, `MessageList`, `MessageInput`.
 - **Push Notifications**: Built-in support for parsing FCM/APNS messages.
-- **Media Support**: Easy handling for image and file attachments.
+- **Media Support**: Handling for image and file attachments.
 
 ## 📦 Installation
 
@@ -24,7 +32,7 @@ yarn add revoluchat-rn-sdk
 npm install revoluchat-rn-sdk
 ```
 
-Don't forget to install the required peer dependencies:
+Peer dependencies:
 
 ```bash
 yarn add react-native-mmkv zustand phoenix
@@ -42,7 +50,21 @@ const config = {
   appId: 'your-app-id',
   baseUrl: 'https://api.yourchat.com',
   socketUrl: 'wss://api.yourchat.com/socket',
-  authToken: 'user-jwt-token',
+  apiKey: 'your-developer-api-key', // From Admin Dashboard → API Keys
+  authToken: userJwtToken, // JWT from your backend login endpoint
+
+  // ---- Token Lifecycle (recommended) ----
+  onTokenRefresh: async () => {
+    // Called automatically ~60s before token expires
+    const res = await yourApi.post('/login', {
+      /* credentials */
+    });
+    return res.data.token; // Return the new JWT string
+  },
+  onSessionExpired: () => {
+    // Called if refresh fails or no handler — redirect to login
+    navigation.replace('Login');
+  },
 };
 
 export default function App() {
@@ -57,11 +79,15 @@ export default function App() {
 ### 2. Display a Chat Thread
 
 ```tsx
-import { MessageList, MessageInput } from 'revoluchat-rn-sdk';
+import { ChatHeader, MessageList, MessageInput } from 'revoluchat-rn-sdk';
 
-export const ChatScreen = ({ roomId }) => {
+export const ChatScreen = ({ roomId, onBack }) => {
   return (
     <View style={{ flex: 1 }}>
+      <ChatHeader 
+        roomId={roomId} 
+        onBack={onBack} 
+      />
       <MessageList roomId={roomId} />
       <MessageInput roomId={roomId} />
     </View>
@@ -69,9 +95,51 @@ export const ChatScreen = ({ roomId }) => {
 };
 ```
 
-## 🛠️ Customization & Theming
+## 🔐 JWT Token Management
 
-The SDK comes with a powerful theme system. Pass a `theme` object to the provider:
+The SDK automatically manages your authentication token lifetime:
+
+| Behavior                | Description                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Expiry Guard**        | If the token is already expired when `connect()` is called, `onSessionExpired` is triggered immediately     |
+| **Auto Refresh**        | A timer is scheduled to fire 60 seconds before expiry and call `onTokenRefresh`                             |
+| **Seamless Reconnect**  | After a successful refresh, the socket reconnects transparently and all rooms are re-joined                 |
+| **Graceful Disconnect** | If refresh fails or no handler is provided, the socket disconnects cleanly and `onSessionExpired` is called |
+
+You can also use the exported JWT utilities directly:
+
+```ts
+import {
+  decodeJWT,
+  isTokenExpired,
+  msUntilTokenExpiry,
+} from 'revoluchat-rn-sdk';
+
+const payload = decodeJWT(token); // { sub, exp, iat, app_id, ... }
+const expired = isTokenExpired(token); // true / false (with 60s buffer)
+const ms = msUntilTokenExpiry(token); // milliseconds until refresh fires
+```
+
+## 👥 Contacts & Multi-Chat
+
+You can fetch registered users and initiate new conversations directly:
+
+```ts
+import { ChatClient } from 'revoluchat-rn-sdk';
+
+const chatClient = ChatClient.getInstance();
+
+// 1. Get list of other registered users
+const contacts = await chatClient.getContacts(); 
+// Returns Array<{ id, name, phone, avatarUrl }>
+
+// 2. Start a new 1-on-1 conversation
+const targetUserId = "456"; 
+const conversation = await chatClient.createConversation(targetUserId);
+// Returns the Conversation object. After this, you can navigate to the chat screen using conversation.id
+```
+
+## 🛠️ Customization & Theming
 
 ```tsx
 const customTheme = {
@@ -89,35 +157,43 @@ const customTheme = {
 <RevoluchatProvider theme={customTheme} ...>
 ```
 
-## 🪝 Headless Hooks (Advanced)
+## 🌐 Localization
 
-Build your custom UI using our reactivity engine:
+The `MessageList` component uses the `id-ID` (Indonesian) locale for date separators by default.
+
+> [!NOTE]
+> If you are using an older version of React Native or an engine without full `Intl` support, you may need to polyfill `Intl` to see correctly localized dates:
+> `yarn add @formatjs/intl-getcanonicallocales @formatjs/intl-locale @formatjs/intl-datetimeformat`
+
+```ts
+// In your App entry point (index.js)
+import '@formatjs/intl-getcanonicallocales/polyfill';
+import '@formatjs/intl-locale/polyfill';
+import '@formatjs/intl-datetimeformat/polyfill';
+import '@formatjs/intl-datetimeformat/locale-data/id'; // Add Indonesian support
+```
+
+## 🪝 Headless Hooks (Advanced)
 
 ```tsx
 import {
   useChannels,
   useMessages,
-  useConnectionStatus,
+  useChannel,
+  usePresence,
 } from 'revoluchat-rn-sdk';
 
-const MyCustomList = () => {
-  const channels = useChannels();
-  const status = useConnectionStatus();
+const MyChatStatus = ({ roomId }) => {
+  const { receiver, isOnline } = useChannel(roomId);
+  const presences = usePresence(roomId); // Full list of online users
 
   return (
-    <View>
-      <Text>Status: {status}</Text>
-      {channels.map((c) => (
-        <Text key={c.id}>{c.name}</Text>
-      ))}
-    </View>
+    <Text>{receiver?.name} is {isOnline ? 'Online' : 'Offline'}</Text>
   );
 };
 ```
 
 ## 🔔 Push Notifications
-
-Parse incoming data messages seamlessly:
 
 ```tsx
 import { RevoluchatNotifications } from 'revoluchat-rn-sdk';
@@ -132,12 +208,11 @@ messaging().onMessage(async (remoteMessage) => {
 
 ## 📂 Architecture Overview
 
-The SDK is built following **Enterprise Clean Architecture**:
-
 - `domain/`: Pure business logic (Entities, Use Cases, Repository Contracts).
-- `data/`: Data persistence and network implementation (Repositories, DataSources).
-- `presentation/`: React specific layer (Components, Hooks, Providers).
+- `data/`: Network & persistence layer (Repositories, DataSources, Socket Client).
+- `presentation/`: React-specific layer (Components, Hooks, Providers).
 - `di/`: Dependency Injection container for loose coupling.
+- `utils/`: Shared helpers, including `jwtUtils`.
 
 ## 📄 License
 

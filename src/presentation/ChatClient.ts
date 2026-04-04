@@ -1,12 +1,17 @@
 import { ChatSocketClient } from '../data/datasources/ChatSocketClient';
 import { useChatStore } from '../data/datasources/ChatStore';
 import { TenantConfig } from '../domain/entities/TenantConfig';
+import { Message } from '../domain/entities/Message';
+import { MessageMapper } from '../utils/MessageMapper';
 import { DI } from '../di';
 import { SendMessageUseCase } from '../domain/usecases/SendMessageUseCase';
 import { JoinRoomUseCase } from '../domain/usecases/JoinRoomUseCase';
 import { SendAttachmentUseCase } from '../domain/usecases/SendAttachmentUseCase';
 import { MarkAsReadUseCase } from '../domain/usecases/MarkAsReadUseCase';
 import { GetConversationsUseCase } from '../domain/usecases/GetConversationsUseCase';
+import { GetContactsUseCase } from '../domain/usecases/GetContactsUseCase';
+import { CreateConversationUseCase } from '../domain/usecases/CreateConversationUseCase';
+import { AddContactUseCase } from '../domain/usecases/AddContactUseCase';
 
 export class ChatClient {
     private static instance: ChatClient;
@@ -20,6 +25,9 @@ export class ChatClient {
     private sendAttachmentUseCase: SendAttachmentUseCase;
     private markAsReadUseCase: MarkAsReadUseCase;
     private getConversationsUseCase: GetConversationsUseCase;
+    private getContactsUseCase: GetContactsUseCase;
+    private addContactUseCase: AddContactUseCase;
+    private createConversationUseCase: CreateConversationUseCase;
 
     private constructor() {
         this.socketClient = DI.socketClient;
@@ -28,6 +36,9 @@ export class ChatClient {
         this.sendAttachmentUseCase = DI.inviteSendAttachment();
         this.markAsReadUseCase = DI.inviteMarkAsRead();
         this.getConversationsUseCase = DI.inviteGetConversations();
+        this.getContactsUseCase = DI.inviteGetContacts();
+        this.addContactUseCase = DI.inviteAddContact();
+        this.createConversationUseCase = DI.inviteCreateConversation();
     }
 
 
@@ -51,29 +62,86 @@ export class ChatClient {
         }
     }
 
-    public joinRoom(roomId: string): void {
-        this.joinRoomUseCase.execute({ roomId });
+    public async joinRoom(roomId: string): Promise<void> {
+        await this.joinRoomUseCase.execute({ roomId, userId: this.userId || undefined });
     }
 
-    public sendMessage(roomId: string, text: string): void {
+    public leaveRoom(roomId: string): void {
+        this.socketClient.leaveRoom(roomId);
+    }
+
+    public joinUserChannel(userId: string): void {
+        this.socketClient.joinUserChannel(userId, (payload) => {
+            const store = useChatStore.getState();
+            if (payload.conversation_id && payload.last_message) {
+                const lastMessage = MessageMapper.mapPayloadToMessage(payload.last_message, payload.conversation_id);
+                const channel = store.channels.find(c => c.id === payload.conversation_id);
+                
+                // Only increment unread if we are not the sender AND not currently in this room
+                const isSender = lastMessage.sender.id?.toString() === userId?.toString();
+                const isActiveRoom = store.activeChannelId === payload.conversation_id;
+                const unreadIncrement = (isSender || isActiveRoom) ? 0 : (payload.unread_count_update || 0);
+
+                console.log('[Revoluchat SDK] joinUserChannel update:', {
+                    conversation_id: payload.conversation_id,
+                    isSender,
+                    isActiveRoom,
+                    unreadIncrement,
+                    currentUnread: channel?.unreadCount
+                });
+
+                if (channel) {
+                    store.updateChannel({
+                        id: payload.conversation_id,
+                        lastMessage: lastMessage,
+                        unreadCount: (channel.unreadCount || 0) + unreadIncrement,
+                        updatedAt: new Date()
+                    });
+                } else {
+                    // New channel, refresh the list
+                    console.log('[Revoluchat SDK] New channel via user channel, refreshing list');
+                    this.getConversations();
+                }
+            }
+        });
+    }
+
+    public async sendMessage(roomId: string, text: string): Promise<void> {
         if (!this.userId) throw new Error('Client not initialized');
-        this.sendMessageUseCase.execute({ roomId, text, userId: this.userId });
+        await this.sendMessageUseCase.execute({ roomId, text, userId: this.userId });
     }
 
-    public async sendAttachment(
+    public async sendAttachments(
         roomId: string,
-        file: { uri: string; name: string; type: string },
+        files: { uri: string; name: string; type: string }[],
         text?: string
     ): Promise<void> {
         if (!this.config || !this.userId) throw new Error('Client not initialized');
-        return this.sendAttachmentUseCase.execute({ roomId, file, config: this.config, userId: this.userId, text });
+        return this.sendAttachmentUseCase.execute({ roomId, files, config: this.config, userId: this.userId, text });
     }
 
     public async getConversations(search?: string): Promise<any> {
-        if (!this.config) throw new Error('Client not initialized');
-        const channels = await this.getConversationsUseCase.execute({ config: this.config, search });
+        if (!this.config || !this.userId) throw new Error('Client not initialized');
+        const channels = await this.getConversationsUseCase.execute({ config: this.config, currentUserId: this.userId, search });
         useChatStore.getState().setChannels(channels);
         return channels;
+    }
+
+    public async getContacts(): Promise<any> {
+        if (!this.config) throw new Error('Client not initialized');
+        return this.getContactsUseCase.execute({ config: this.config });
+    }
+
+    public async addContact(phone: string): Promise<any> {
+        if (!this.config) throw new Error('Client not initialized');
+        return this.addContactUseCase.execute({ config: this.config, phone });
+    }
+
+    public async createConversation(targetUserId: string): Promise<any> {
+        if (!this.config || !this.userId) throw new Error('Client not initialized');
+        const channel = await this.createConversationUseCase.execute({ config: this.config, currentUserId: this.userId, targetUserId });
+        useChatStore.getState().upsertChannel(channel);
+        return channel;
     }
 
     public getPresences(roomId: string): any[] {
@@ -89,4 +157,3 @@ export class ChatClient {
         useChatStore.getState().setConnectionStatus('disconnected');
     }
 }
-

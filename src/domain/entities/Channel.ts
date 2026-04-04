@@ -11,4 +11,5 @@ export interface Channel {
     metadata?: Record<string, any>;
     createdAt: Date;
     updatedAt: Date;
+    displayTime?: string;
 }

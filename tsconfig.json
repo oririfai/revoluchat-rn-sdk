@@ -3,7 +3,8 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "revoluchat-rn-sdk": ["./src/index"]
+      "revoluchat-rn-sdk": ["./src/index"],
+      "@/*": ["src/*"]
     },
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,

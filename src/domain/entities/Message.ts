@@ -16,6 +16,7 @@ export interface Message {
     attachments?: Attachment[];
     status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
     createdAt: Date;
+    displayTime?: string;
     updatedAt: Date;
     metadata?: Record<string, any>;
 }

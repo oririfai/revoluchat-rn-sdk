@@ -12,15 +12,24 @@ export const useMessages = (roomId: string) => {
 
     useEffect(() => {
         client.joinRoom(roomId);
+        return () => {
+            client.leaveRoom(roomId);
+            useChatStore.getState().setActiveChannelId(null);
+        };
     }, [client, roomId]);
 
     const sendMessage = (text: string) => {
         client.sendMessage(roomId, text);
     };
 
+    const sendAttachments = (files: { uri: string; name: string; type: string }[], text?: string) => {
+        client.sendAttachments(roomId, files, text);
+    };
+
     return {
         messages,
         sendMessage,
+        sendAttachments,
     };
 };
 
@@ -37,14 +46,26 @@ export const useConnectionStatus = () => {
 export const useChannels = () => {
     const { client } = useRevoluchat();
     const channels = useChatStore((state: any) => state.channels);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+
+    const refreshChannels = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            await client.getConversations();
+        } catch (err: any) {
+            setError(err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        if (channels.length === 0) {
-            client.getConversations();
-        }
-    }, [client, channels.length]);
+        refreshChannels();
+    }, [client]);
 
-    return channels;
+    return { channels, loading, error, refreshChannels };
 };
 
 
@@ -68,3 +89,4 @@ export const usePresence = (roomId: string) => {
 };
 
 export * from './useCallControls';
+export * from './useChannel';

@@ -13,6 +13,9 @@ export * from './presentation/theme';
 export * from './presentation/components/Avatar';
 export * from './presentation/components/ChannelList';
 export * from './presentation/components/MessageList';
+export * from './presentation/components/ChatHeader';
 export * from './presentation/components/MessageInput';
 export * from './presentation/Notifications';
 
+// Utils
+export * from './utils/jwtUtils';

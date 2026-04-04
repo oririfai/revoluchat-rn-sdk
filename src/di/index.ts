@@ -7,6 +7,9 @@ import { JoinRoomUseCase } from '../domain/usecases/JoinRoomUseCase';
 import { SendAttachmentUseCase } from '../domain/usecases/SendAttachmentUseCase';
 import { MarkAsReadUseCase } from '../domain/usecases/MarkAsReadUseCase';
 import { GetConversationsUseCase } from '../domain/usecases/GetConversationsUseCase';
+import { GetContactsUseCase } from '../domain/usecases/GetContactsUseCase';
+import { CreateConversationUseCase } from '../domain/usecases/CreateConversationUseCase';
+import { AddContactUseCase } from '../domain/usecases/AddContactUseCase';
 
 /**
  * Simple Dependency Injection Container / Service Locator.
@@ -53,5 +56,17 @@ export class DI {
 
     static inviteGetConversations(): GetConversationsUseCase {
         return new GetConversationsUseCase(this.repository);
+    }
+
+    static inviteGetContacts(): GetContactsUseCase {
+        return new GetContactsUseCase(this.repository);
+    }
+
+    static inviteCreateConversation(): CreateConversationUseCase {
+        return new CreateConversationUseCase(this.repository);
+    }
+
+    static inviteAddContact(): AddContactUseCase {
+        return new AddContactUseCase(this.repository);
     }
 }

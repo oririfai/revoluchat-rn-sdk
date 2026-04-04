@@ -19,13 +19,18 @@ export interface ChatState {
     messagesByChannel: Record<string, Message[]>;
     connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
     activeCall: CallSession | null;
+    activeChannelId: string | null;
 
     setChannels: (channels: Channel[]) => void;
+    upsertChannel: (channel: Channel) => void;
     updateChannel: (channel: Partial<Channel> & { id: string }) => void;
     addMessage: (channelId: string, message: Message) => void;
+    setMessages: (channelId: string, messages: Message[]) => void;
     updateMessageStatus: (channelId: string, messageId: string, status: Message['status']) => void;
     setConnectionStatus: (status: ChatState['connectionStatus']) => void;
     setActiveCall: (call: CallSession | null) => void;
+    setActiveChannelId: (id: string | null) => void;
+    resetUnreadCount: (channelId: string) => void;
 }
 
 
@@ -36,32 +41,74 @@ export const useChatStore = create<ChatState>()(
             messagesByChannel: {},
             connectionStatus: 'disconnected',
             activeCall: null,
+            activeChannelId: null,
 
             setChannels: (channels) => set({ channels }),
+            
+            upsertChannel: (channel) => set((state) => {
+                const index = state.channels.findIndex((c) => c.id === channel.id);
+                if (index !== -1) {
+                    return {
+                        channels: state.channels.map((c) =>
+                            c.id === channel.id ? { ...c, ...channel } : c
+                        ),
+                    };
+                } else {
+                    return {
+                        channels: [channel, ...state.channels],
+                    };
+                }
+            }),
 
-            updateChannel: (updatedChannel) => set((state) => ({
-                channels: state.channels.map((ch) =>
-                    ch.id === updatedChannel.id ? { ...ch, ...updatedChannel } : ch
-                ),
+            updateChannel: (channelUpdate) => set((state) => ({
+                channels: state.channels.map(c => 
+                    c.id === channelUpdate.id ? { ...c, ...channelUpdate } : c
+                )
             })),
 
             addMessage: (channelId, message) => set((state) => {
-                const currentMessages = state.messagesByChannel[channelId] || [];
+                const channelMessages = state.messagesByChannel[channelId] || [];
+                // Prevent duplicate messages
+                if (channelMessages.find(m => m.id === message.id)) {
+                    return state;
+                }
+                
+                // Update messages
+                const nextMessages = [...channelMessages, message];
+                
+                // Update the channel's last message in the list
+                const nextChannels = state.channels.map((ch) =>
+                    ch.id === channelId 
+                        ? { 
+                            ...ch, 
+                            lastMessage: message, 
+                            unreadCount: state.activeChannelId === channelId ? 0 : ch.unreadCount,
+                            updatedAt: new Date() 
+                          } 
+                        : ch
+                );
+
                 return {
                     messagesByChannel: {
                         ...state.messagesByChannel,
-                        [channelId]: [...currentMessages, message],
+                        [channelId]: nextMessages
                     },
-                    // Also update the channel's last message
-                    channels: state.channels.map((ch) =>
-                        ch.id === channelId ? { ...ch, lastMessage: message, updatedAt: new Date() } : ch
-                    ),
+                    channels: nextChannels
                 };
             }),
+
+            setMessages: (channelId, messages) => set((state) => ({
+                messagesByChannel: {
+                    ...state.messagesByChannel,
+                    [channelId]: messages
+                }
+            })),
 
             setConnectionStatus: (status) => set({ connectionStatus: status }),
 
             setActiveCall: (call) => set({ activeCall: call }),
+
+            setActiveChannelId: (id) => set({ activeChannelId: id }),
 
             updateMessageStatus: (channelId, messageId, status) => set((state) => {
                 const messages = state.messagesByChannel[channelId] || [];
@@ -72,6 +119,12 @@ export const useChatStore = create<ChatState>()(
                     }
                 };
             }),
+            
+            resetUnreadCount: (channelId) => set((state) => ({
+                channels: state.channels.map((c) =>
+                    c.id === channelId ? { ...c, unreadCount: 0 } : c
+                )
+            })),
         }),
         {
             name: 'revoluchat-storage',
@@ -79,7 +132,7 @@ export const useChatStore = create<ChatState>()(
             partialize: (state) => ({
                 channels: state.channels,
                 messagesByChannel: state.messagesByChannel,
-                // activeCall is NOT persisted for security and UX reasons (calls shouldn't survive app restart)
+                // activeCall is NOT persisted
             }),
         }
     )
