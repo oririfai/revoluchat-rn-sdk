@@ -17,6 +17,8 @@ export class ChatSocketClient {
         onCall?: (event: string, payload: any) => void; 
         onReadReceipt?: (payload: any) => void 
     }> = new Map();
+    private globalCallListeners: Set<(event: string, payload: any) => void> = new Set();
+    private lastCallEvent: { id: string, event: string, time: number } | null = null;
 
     // Token lifecycle management
     private currentConfig: TenantConfig | null = null;
@@ -81,27 +83,27 @@ export class ChatSocketClient {
             })
         });
 
-        this.socket.onOpen(() => {
-            this.isConnected = true;
-            console.log(`[Revoluchat SDK] Socket connected for tenant ${config.tenantId}`);
-
-            // Process pending joins
-            this.pendingJoins.forEach(join => {
-                console.log(`[Revoluchat SDK] Processing pending join for room ${join.roomId}`);
-                // Since we are now connected, calling joinRoom will trigger initiateJoin
-                // We need to temporarily remove the promise from joiningPromises so it doesn't just return it
-                this.joiningPromises.delete(join.roomId);
-                this.joinRoom(join.roomId, join.onMessage, join.onCall, join.onReadReceipt)
-                    .then(join.resolve)
-                    .catch(join.reject);
+            this.socket.onOpen(() => {
+                this.isConnected = true;
+                console.log(`[Revoluchat SDK] SUCCESS: Socket connected for tenant ${config.tenantId} at ${config.socketUrl}`);
+    
+                // Process pending joins
+                this.pendingJoins.forEach(join => {
+                    console.log(`[Revoluchat SDK] Processing pending join for room ${join.roomId}`);
+                    this.joiningPromises.delete(join.roomId);
+                    this.joinRoom(join.roomId, join.onMessage, join.onCall, join.onReadReceipt)
+                        .then(join.resolve)
+                        .catch(join.reject);
+                });
+                
+                // Join user channel if requested
+                if (this.userChannelUserId && this.userChannelCallback) {
+                    console.log(`[Revoluchat SDK] Auto-joining user channel for userId: ${this.userChannelUserId}`);
+                    this.joinUserChannel(this.userChannelUserId, this.userChannelCallback);
+                }
+    
+                this.pendingJoins.clear();
             });
-            // Join user channel if requested
-            if (this.userChannelUserId && this.userChannelCallback) {
-                this.joinUserChannel(this.userChannelUserId, this.userChannelCallback);
-            }
-
-            this.pendingJoins.clear();
-        });
 
         this.socket.onClose(() => {
             this.isConnected = false;
@@ -253,6 +255,9 @@ export class ChatSocketClient {
                      roomChannel.on(event, (payload) => {
                         const callbacks = this.roomCallbacks.get(roomId);
                         if (callbacks && callbacks.onCall) callbacks.onCall(event, payload);
+
+                        // Notify global listeners with deduplication
+                        this.notifyGlobalCall(event, payload);
                      });
                  });
  
@@ -325,15 +330,27 @@ export class ChatSocketClient {
         }
     }
 
-    public sendCallSignal(roomId: string, event: string, payload: any): Promise<any> {
+    public async sendCallSignal(roomId: string, event: string, payload: any): Promise<any> {
+        let channel = this.roomChannels.get(roomId);
+
+        if (!channel) {
+            console.log(`[ChatSocketClient] Auto-joining room ${roomId} for signaling...`);
+            try {
+                const result = await this.joinRoom(roomId, () => {});
+                channel = result.channel;
+            } catch (error) {
+                console.error(`[ChatSocketClient] Auto-join failed for room ${roomId}`, error);
+                throw new Error(`Failed to join room ${roomId} for signaling: ${error}`);
+            }
+        }
+
         return new Promise((resolve, reject) => {
-            const channel = this.roomChannels.get(roomId);
             if (!channel) {
-                reject(new Error(`Not joined to room ${roomId}`));
+                reject(new Error(`Channel still not available for room ${roomId}`));
                 return;
             }
 
-            channel.push(event, payload)
+            channel.push(event, payload, 3000)
                 .receive('ok', (resp) => resolve(resp))
                 .receive('error', (reasons) => reject(reasons))
                 .receive('timeout', () => reject(new Error('Signaling timeout')));
@@ -379,9 +396,106 @@ export class ChatSocketClient {
             });
 
         this.userChannel.on('conversation_updated', (payload) => {
-            console.log('[Revoluchat SDK] Conversation update received:', payload);
+            console.log('[Revoluchat SDK] UserChannel -> conversation_updated:', payload);
             onUpdate(payload);
         });
+
+        // --- GLOBAL RTC SIGNALING IN USER CHANNEL ---
+        const callEvents = [
+            'call:incoming',
+            'call:ringing',
+            'call:accepted',
+            'call:rejected',
+            'call:signal',
+            'call:hangup'
+        ];
+
+        callEvents.forEach(event => {
+            this.userChannel?.on(event, (payload) => {
+                console.log(`[Revoluchat SDK] UserChannel -> Global Call Event [${event}]:`, payload);
+                // Trigger the generic update callback with a special type
+                onUpdate({ type: 'call_event', event, payload });
+
+                // Notify global listeners with deduplication
+                this.notifyGlobalCall(event, payload);
+            });
+        });
+    }
+
+    public onGlobalCall(callback: (event: string, payload: any) => void): () => void {
+        this.globalCallListeners.add(callback);
+        return () => {
+            this.globalCallListeners.delete(callback);
+        };
+    }
+
+    private notifyGlobalCall(event: string, payload: any): void {
+        const callId = payload.call_id;
+        const now = Date.now();
+
+        // call:signal must NEVER be deduplicated - each signal has different payload
+        // (offer, answer, distinct ICE candidates) and all must be processed
+        if (event !== 'call:signal') {
+            // Deduplicate: If same event for same call_id arrives within 500ms, ignore it
+            if (this.lastCallEvent &&
+                this.lastCallEvent.id === callId &&
+                this.lastCallEvent.event === event &&
+                (now - this.lastCallEvent.time) < 500) {
+                console.log(`[Revoluchat SDK] Dedup: Dropping ${event} for ${callId}`);
+                return;
+            }
+            this.lastCallEvent = { id: callId, event, time: now };
+        }
+
+        this.globalCallListeners.forEach(listener => listener(event, payload));
+    }
+
+    /**
+     * Send signaling via the global User Channel (Fast Path)
+     */
+    public async sendUserSignal(event: string, payload: any): Promise<any> {
+        if (!this.userChannel || !this.isConnected) {
+            throw new Error('User channel not connected for fast-path signaling');
+        }
+
+        return new Promise((resolve, reject) => {
+            this.userChannel!.push(event, payload, 3000)
+                .receive('ok', (resp) => resolve(resp))
+                .receive('error', (reasons) => reject(reasons))
+                .receive('timeout', () => reject(new Error('User signaling timeout')));
+        });
+    }
+
+    public async getRTCConfig(): Promise<any> {
+        if (!this.currentConfig) {
+            throw new Error('[ChatSocketClient] Config not initialized. Connect first.');
+        }
+
+        const { baseUrl, authToken, tenantId, appId, apiKey } = this.currentConfig;
+        const url = `${baseUrl}/api/v1/rtc_config`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                    'x-tenant-id': tenantId,
+                    'x-app-id': appId,
+                    'x-api-key': apiKey,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`[ChatSocketClient] Failed to fetch RTC config: ${response.status}`);
+            }
+
+            const json = await response.json();
+            return json.data;
+        } catch (error) {
+            console.error('[ChatSocketClient] Error fetching RTC config', error);
+            throw error;
+        }
     }
 
     public disconnect(): void {

@@ -56,9 +56,30 @@ export class ChatClient {
 
         try {
             this.socketClient.connect(config, userId);
+            
+            // Fetch dynamic RTC config (STUN/TURN servers) from backend
+            this.fetchRTCConfig();
+
+            // CRITICAL FIX: Automatically join global signaling channel
+            // This ensures we receive 'call:incoming' and 'call:accepted' signals
+            // even when not inside a chat room.
+            this.joinUserChannel(userId);
+            
         } catch (error) {
             useChatStore.getState().setConnectionStatus('error');
             console.error('[Revoluchat SDK] Initialization failed', error);
+        }
+    }
+
+    public async fetchRTCConfig(): Promise<void> {
+        try {
+            const data = await this.socketClient.getRTCConfig();
+            if (data && data.ice_servers) {
+                console.log('[Revoluchat SDK] Successfully fetched dynamic RTC config');
+                useChatStore.getState().setIceServers(data.ice_servers);
+            }
+        } catch (error) {
+            console.warn('[Revoluchat SDK] Failed to fetch dynamic RTC config, using local fallback.', error);
         }
     }
 
@@ -73,6 +94,53 @@ export class ChatClient {
     public joinUserChannel(userId: string): void {
         this.socketClient.joinUserChannel(userId, (payload) => {
             const store = useChatStore.getState();
+
+            // Handle Global Call Events
+            if (payload.type === 'call_event') {
+                const { event, payload: callData } = payload;
+                const activeCall = store.activeCall;
+
+                if (event === 'call:incoming') {
+                    // Start an incoming call session
+                    store.setActiveCall({
+                        id: callData.call_id,
+                        type: callData.type,
+                        status: 'dialing', // UI will show as 'Incoming' based on callerId
+                        conversationId: callData.conversation_id,
+                        callerId: callData.caller_id,
+                        callerName: callData.caller_name || callData.phone_number || 'Unknown User',
+                        callerPhoto: callData.caller_photo,
+                        receiverId: userId ? parseInt(userId) : 0,
+                        startedAt: new Date(),
+                    });
+                } else if (activeCall) {
+                    // Robust ID comparison: trim and ignore case to handle stringification differences
+                    const incomingId = String(callData.call_id || '').trim().toLowerCase();
+                    const currentId = String(activeCall.id || '').trim().toLowerCase();
+                    const isIdMatch = incomingId === currentId;
+
+                    console.log(`[Revoluchat SDK] Global Signal [${event}]: ${incomingId} (Matching: ${isIdMatch})`);
+
+                    // RADICAL SYNC: If it's call:accepted, we force update if ANY call is active
+                    // This ensures callers don't get stuck even if IDs slightly mismatch in string format
+                    if (event === 'call:accepted' || isIdMatch) {
+                        // Update existing call session status and metadata
+                        if (event === 'call:accepted') {
+                            console.log('[Revoluchat SDK] FORCE SYNC: Call Accepted');
+                            store.setActiveCall({ 
+                                ...activeCall, 
+                                status: 'connected',
+                                callerName: callData.caller_name || activeCall.callerName,
+                                receiverName: callData.receiver_name || activeCall.receiverName
+                            });
+                        } else if (event === 'call:rejected' || event === 'call:hangup') {
+                            store.setActiveCall(null);
+                        }
+                    }
+                }
+                return;
+            }
+
             if (payload.conversation_id && payload.last_message) {
                 const lastMessage = MessageMapper.mapPayloadToMessage(payload.last_message, payload.conversation_id);
                 const channel = store.channels.find(c => c.id === payload.conversation_id);

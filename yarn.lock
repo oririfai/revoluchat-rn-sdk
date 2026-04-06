@@ -5990,6 +5990,11 @@ react-native-builder-bob@^0.30.0:
     which "^2.0.2"
     yargs "^17.5.1"
 
+react-native-incall-manager@^4.2.1:
+  version "4.2.1"
+  resolved "https://registry.npmjs.org/react-native-incall-manager/-/react-native-incall-manager-4.2.1.tgz#6a261693d8906f6e69c79356e5048e95d0e3e239"
+  integrity sha512-HTdtzQ/AswUbuNhcL0gmyZLAXo8VqBO7SIh+BwbeeM1YMXXlR+Q2MvKxhD4yanjJPeyqMfuRhryCQCJhPlsdAw==
+
 react-native-mmkv@^2.12.2:
   version "2.12.2"
   resolved "https://registry.yarnpkg.com/react-native-mmkv/-/react-native-mmkv-2.12.2.tgz#4bba0f5f04e2cf222494cce3a9794ba6a4894dee"

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { useRevoluchat } from '../RevoluchatProvider';
 import { useChannel } from '../hooks/useChannel';
+import { useCallControls } from '../hooks/useCallControls';
 import { Avatar } from './Avatar';
 
 interface ChatHeaderProps {
@@ -23,6 +24,19 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   const { theme } = useRevoluchat();
   const { receiver, isOnline } = useChannel(roomId);
+  const { initiateCall } = useCallControls();
+
+  const handleAudioCall = () => {
+    if (receiver) {
+      initiateCall(roomId, parseInt(receiver.id), 'audio', receiver.name);
+    }
+  };
+
+  const handleVideoCall = () => {
+    if (receiver) {
+      initiateCall(roomId, parseInt(receiver.id), 'video', receiver.name);
+    }
+  };
 
   if (!receiver) {
       return (
@@ -35,10 +49,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
               <Text style={[styles.title, { color: '#FFFFFF' }, titleStyle]}>Chat</Text>
               <View style={{ flex: 1 }} />
               <View style={styles.callButtons}>
-                <TouchableOpacity style={styles.iconButton}>
+                <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
                   <Text style={styles.iconText}>📞</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton}>
+                <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
                   <Text style={styles.iconText}>📹</Text>
                 </TouchableOpacity>
               </View>
@@ -73,10 +87,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </View>
 
       <View style={styles.callButtons}>
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
           <Text style={styles.iconText}>📞</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton}>
+        <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
           <Text style={styles.iconText}>📹</Text>
         </TouchableOpacity>
       </View>

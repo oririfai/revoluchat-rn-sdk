@@ -20,6 +20,7 @@ export interface ChatState {
     connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
     activeCall: CallSession | null;
     activeChannelId: string | null;
+    iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>;
 
     setChannels: (channels: Channel[]) => void;
     upsertChannel: (channel: Channel) => void;
@@ -28,9 +29,10 @@ export interface ChatState {
     setMessages: (channelId: string, messages: Message[]) => void;
     updateMessageStatus: (channelId: string, messageId: string, status: Message['status']) => void;
     setConnectionStatus: (status: ChatState['connectionStatus']) => void;
-    setActiveCall: (call: CallSession | null) => void;
+    setActiveCall: (call: CallSession | null | ((prev: CallSession | null) => CallSession | null)) => void;
     setActiveChannelId: (id: string | null) => void;
     resetUnreadCount: (channelId: string) => void;
+    setIceServers: (servers: Array<{ urls: string | string[]; username?: string; credential?: string }>) => void;
 }
 
 
@@ -106,7 +108,9 @@ export const useChatStore = create<ChatState>()(
 
             setConnectionStatus: (status) => set({ connectionStatus: status }),
 
-            setActiveCall: (call) => set({ activeCall: call }),
+            setActiveCall: (call) => set((state) => ({ 
+                activeCall: typeof call === 'function' ? call(state.activeCall) : call 
+            })),
 
             setActiveChannelId: (id) => set({ activeChannelId: id }),
 
@@ -125,6 +129,13 @@ export const useChatStore = create<ChatState>()(
                     c.id === channelId ? { ...c, unreadCount: 0 } : c
                 )
             })),
+
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+            ],
+
+            setIceServers: (iceServers) => set({ iceServers }),
         }),
         {
             name: 'revoluchat-storage',
@@ -132,6 +143,7 @@ export const useChatStore = create<ChatState>()(
             partialize: (state) => ({
                 channels: state.channels,
                 messagesByChannel: state.messagesByChannel,
+                iceServers: state.iceServers,
                 // activeCall is NOT persisted
             }),
         }

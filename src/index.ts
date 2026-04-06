@@ -19,3 +19,4 @@ export * from './presentation/Notifications';
 
 // Utils
 export * from './utils/jwtUtils';
+export * from './utils/permissions';

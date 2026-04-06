@@ -1,6 +1,6 @@
 # Revoluchat React Native SDK 🚀
 
-**Version**: `v1.2.0` (JWT Auto-Refresh & Secure Auth Support)
+**Version**: `v1.3.0` (WebRTC Audio/Video Calls, Audio Routing, Secure Auth)
 
 The official React Native SDK for **Revoluchat**, an enterprise-grade, multi-tenant real-time chat platform. Built with a **Clean Architecture** mindset, offering both a headless logic layer (Hooks) and ready-made UI components.
 
@@ -12,6 +12,7 @@ The official React Native SDK for **Revoluchat**, an enterprise-grade, multi-ten
 - **Real-time Engine**: Powered by Phoenix Channels for instant message delivery and presence tracking.
 - **Presence & Online Status**: Real-time "Online/Offline" indicators for chat partners.
 - **Chat Header**: Ready-to-use `ChatHeader` with partner photo, name, status, and call buttons.
+- **Audio & Video Calls**: P2P WebRTC calling with aggressive Android Native Audio Routing.
 - **Date Separators**: Automatic "Day, Date, Year" separators in `MessageList`.
 - **Read Receipts**: Visual status indicators using optimized PNG assets (Unread, Read, Failed).
 - **JWT Token Lifecycle**: Automatic expiry detection, refresh scheduling, and seamless socket reconnection.
@@ -93,6 +94,97 @@ export const ChatScreen = ({ roomId, onBack }) => {
     </View>
   );
 };
+```
+
+## 📞 WebRTC Audio & Video Calls
+
+The SDK now fully supports P2P Audio and Video calls using `react-native-webrtc`, with robust UDP NAT traversal handling (STUN/TURN) and direct OS-level audio routing.
+
+### 1. Android Native Audio Routing Setup (Required)
+To avoid malicious `WAKE_LOCK` security exceptions and crashes caused by third-party libraries like `InCallManager`, the SDK offloads audio routing (Loudspeaker/Earpiece) directly to the host application using Android's native `AudioManager`.
+
+You **must** create the following two files in your `revolu-app` Android project:
+
+**`android/app/src/main/java/com/revoluapp/AudioRouteModule.kt`**
+```kotlin
+package com.revoluapp
+
+import android.content.Context
+import android.media.AudioManager
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContextBaseJavaModule
+import com.facebook.react.bridge.ReactMethod
+
+class AudioRouteModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+    override fun getName() = "AudioRouteModule"
+
+    @ReactMethod
+    fun setSpeakerphoneOn(on: Boolean) {
+        val audioManager = reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        // Gain focus to prevent other apps from suppressing the call audio
+        audioManager.requestAudioFocus(null, AudioManager.STREAM_VOICE_CALL, AudioManager.AUDIOFOCUS_GAIN)
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        audioManager.isSpeakerphoneOn = on
+        
+        // Auto-boost low volume
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
+        if (audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL) < maxVolume / 3) {
+            audioManager.setStreamVolume(AudioManager.STREAM_VOICE_CALL, maxVolume / 2, 0)
+        }
+    }
+
+    @ReactMethod
+    fun stop() {
+        val audioManager = reactApplicationContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        audioManager.mode = AudioManager.MODE_NORMAL
+        audioManager.isSpeakerphoneOn = false
+    }
+}
+```
+
+**`android/app/src/main/java/com/revoluapp/AudioRoutePackage.kt`**
+```kotlin
+package com.revoluapp
+
+import com.facebook.react.ReactPackage
+import com.facebook.react.bridge.NativeModule
+import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.uimanager.ViewManager
+
+class AudioRoutePackage : ReactPackage {
+    override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> = emptyList()
+    override fun createNativeModules(reactContext: ReactApplicationContext): MutableList<NativeModule> = mutableListOf(AudioRouteModule(reactContext))
+}
+```
+
+Then register it in your `MainApplication.kt`:
+```kotlin
+override fun getPackages(): List<ReactPackage> =
+    PackageList(this).packages.apply {
+        add(AudioRoutePackage())
+    }
+```
+
+### 2. Configure STUN and TURN Servers
+If two clients are on strict networks (e.g., Cellular Data `CGNAT` vs Corporate WiFi `Symmetric NAT`), STUN alone will fail to hole-punch, resulting in an `ICE failed` state and no audio/video. 
+
+You must supply global Relay servers (TURN) in the provider configuration:
+
+```tsx
+const config = {
+  // ... other config (tenantId, appId, etc.)
+  rtcConfig: {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      // Add your production TURN servers here (e.g. Twilio, Metered)
+      {
+        urls: 'turn:global.turn.twilio.com:3478?transport=tcp',
+        username: 'your-twilio-username',
+        credential: 'your-twilio-credential'
+      }
+    ]
+  }
+}
 ```
 
 ## 🔐 JWT Token Management

@@ -10,6 +10,8 @@ export interface CallSession {
     receiverId: number;
     callerName?: string;
     callerPhoto?: string;
+    receiverName?: string;
+    receiverPhoto?: string;
     phoneNumber?: string;
     startedAt?: Date;
     endedAt?: Date;

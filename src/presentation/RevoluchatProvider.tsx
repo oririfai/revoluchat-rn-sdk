@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo } from 'react';
 import { ChatClient } from './ChatClient';
 import { useChatStore } from '../data/datasources/ChatStore';
 import { TenantConfig } from '../domain/entities/TenantConfig';
+import { CallModal } from './components/CallModal';
 import { RevoluchatTheme, defaultTheme } from './theme';
 
 interface RevoluchatContextType {
@@ -38,6 +39,7 @@ export const RevoluchatProvider: React.FC<RevoluchatProviderProps> = ({
   }), [customTheme]);
 
   useEffect(() => {
+    // initialize() already handles joinUserChannel() internally
     client.initialize(config, userId);
     return () => {
       client.disconnect();
@@ -47,6 +49,7 @@ export const RevoluchatProvider: React.FC<RevoluchatProviderProps> = ({
   return (
     <RevoluchatContext.Provider value={{ client, userId, connectionStatus, theme }}>
       {children}
+      <CallModal />
     </RevoluchatContext.Provider>
   );
 };
