@@ -2,8 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { useRevoluchat } from '../RevoluchatProvider';
 import { useChannel } from '../hooks/useChannel';
-import { useCallControls } from '../hooks/useCallControls';
+import { useCallContext } from '../CallProvider';
 import { Avatar } from './Avatar';
+import { BackIcon, PhoneIcon, VideoIcon } from './Icons';
 
 interface ChatHeaderProps {
   roomId: string;
@@ -24,7 +25,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 }) => {
   const { theme } = useRevoluchat();
   const { receiver, isOnline } = useChannel(roomId);
-  const { initiateCall } = useCallControls();
+  const { initiateCall } = useCallContext();
 
   const handleAudioCall = () => {
     if (receiver) {
@@ -43,17 +44,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           <View style={[styles.container, { backgroundColor: theme.colors.primary }, containerStyle]}>
               {showBack && (
                   <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                      <Text style={styles.backText}>←</Text>
+                      <BackIcon size={24} color="#FFFFFF" />
                   </TouchableOpacity>
               )}
               <Text style={[styles.title, { color: '#FFFFFF' }, titleStyle]}>Chat</Text>
               <View style={{ flex: 1 }} />
               <View style={styles.callButtons}>
                 <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
-                  <Text style={styles.iconText}>📞</Text>
+                  <PhoneIcon size={20} color="#FFFFFF" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
-                  <Text style={styles.iconText}>📹</Text>
+                  <VideoIcon size={20} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
           </View>
@@ -64,7 +65,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     <View style={[styles.container, { backgroundColor: theme.colors.primary }, containerStyle]}>
       {showBack && (
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>←</Text>
+          <BackIcon size={24} color="#FFFFFF" />
         </TouchableOpacity>
       )}
       
@@ -88,10 +89,10 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       <View style={styles.callButtons}>
         <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
-          <Text style={styles.iconText}>📞</Text>
+          <PhoneIcon size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
-          <Text style={styles.iconText}>📹</Text>
+          <VideoIcon size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -113,10 +114,6 @@ const styles = StyleSheet.create({
   backButton: {
     marginRight: 12,
     padding: 4,
-  },
-  backText: {
-    fontSize: 24,
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -142,8 +139,5 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  iconText: {
-    fontSize: 18,
   },
 });

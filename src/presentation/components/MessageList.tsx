@@ -10,9 +10,8 @@ import {
 import { useMessages } from '../hooks';
 import { useRevoluchat } from '../RevoluchatProvider';
 import { Message } from '../../domain/entities/Message';
-
-
 import { ImageGrid } from './ImageGrid';
+import { PhoneIcon, VideoIcon, AudioIcon, FileIcon, AttachIcon } from './Icons';
 
 interface MessageListProps {
   roomId: string;
@@ -84,10 +83,15 @@ export const MessageList: React.FC<MessageListProps> = ({
             return (
                 <View style={styles.systemBubbleContainer}>
                     <View style={[styles.systemBubble, { backgroundColor: theme.colors.background, borderColor: theme.colors.textSecondary + '40', borderRadius: theme.roundness * 2 }]}>
-                        <Text style={[styles.systemText, { color: theme.colors.textSecondary }]}>
-                            {item.metadata?.call_type === 'video' ? '📹 ' : '📞 '}
-                            {item.text}
-                        </Text>
+                        <View style={styles.systemRow}>
+                            {item.metadata?.call_type === 'video' ? 
+                                <VideoIcon size={14} color={theme.colors.textSecondary} /> : 
+                                <PhoneIcon size={14} color={theme.colors.textSecondary} />
+                            }
+                            <Text style={[styles.systemText, { color: theme.colors.textSecondary, marginLeft: 6 }]}>
+                                {item.text}
+                            </Text>
+                        </View>
                     </View>
                 </View>
             );
@@ -131,9 +135,12 @@ export const MessageList: React.FC<MessageListProps> = ({
             <View style={styles.attachmentsContainer}>
               {audioAttachments.map((att: any) => (
                 <View key={att.id} style={styles.attachmentItem}>
-                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
-                    🎵 Rekaman Suara: {att.name || 'Voice Message'}
-                  </Text>
+                  <View style={styles.attachmentRow}>
+                    <AudioIcon size={16} color={isMe ? '#EEE' : theme.colors.primary} />
+                    <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13, marginLeft: 6 }}>
+                      Rekaman Suara: {att.name || 'Voice Message'}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -143,9 +150,12 @@ export const MessageList: React.FC<MessageListProps> = ({
             <View style={styles.attachmentsContainer}>
               {videoAttachments.map((att: any) => (
                 <View key={att.id} style={styles.attachmentItem}>
-                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
-                    🎥 Video: {att.name}
-                  </Text>
+                  <View style={styles.attachmentRow}>
+                    <VideoIcon size={16} color={isMe ? '#EEE' : theme.colors.primary} />
+                    <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13, marginLeft: 6 }}>
+                      Video: {att.name}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -155,9 +165,12 @@ export const MessageList: React.FC<MessageListProps> = ({
             <View style={styles.attachmentsContainer}>
               {otherAttachments.map((att: any) => (
                 <View key={att.id} style={styles.attachmentItem}>
-                  <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13 }}>
-                    📎 {att.name}
-                  </Text>
+                  <View style={styles.attachmentRow}>
+                    <AttachIcon size={16} color={isMe ? '#EEE' : theme.colors.primary} />
+                    <Text style={{ color: isMe ? '#EEE' : theme.colors.textSecondary, fontSize: 13, marginLeft: 6 }}>
+                      {att.name}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -299,6 +312,10 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 2,
   },
+  attachmentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   systemBubbleContainer: {
     alignItems: 'center',
     marginVertical: 16,
@@ -309,9 +326,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
   },
+  systemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   systemText: {
     fontSize: 12,
     fontWeight: '500',
   },
 });
-

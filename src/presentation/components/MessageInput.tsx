@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useMessages } from '../hooks';
 import { useRevoluchat } from '../RevoluchatProvider';
+import { ImageIcon, AttachIcon, SendIcon } from './Icons';
 
 interface MessageInputProps {
   roomId: string;
@@ -95,10 +96,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       >
         <View style={styles.actionsContainer}>
           <TouchableOpacity onPress={handlePickImage} style={styles.actionButton}>
-              <Text style={{ fontSize: 20 }}>🖼️</Text>
+              <ImageIcon size={22} color={theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handlePickFile} style={styles.actionButton}>
-              <Text style={{ fontSize: 20 }}>📎</Text>
+              <AttachIcon size={22} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
 
@@ -130,7 +131,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onPress={handleSend}
           disabled={isSendDisabled}
         >
-          <Text style={styles.sendButtonText}>send</Text>
+          <SendIcon size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -209,10 +210,5 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 12,
   },
 });

@@ -7,7 +7,7 @@ import { User } from '../entities/User';
 export interface ChatRepository {
     connect(config: TenantConfig, userId: string): void;
     disconnect(): void;
-    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void): Promise<{ channel: PhoenixChannel; messages: any[] }>;
+    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }>;
     leaveRoom(roomId: string): void;
     sendMessage(roomId: string, messageBody: any): Promise<void>;
     markAsRead(roomId: string, messageId: string): void;

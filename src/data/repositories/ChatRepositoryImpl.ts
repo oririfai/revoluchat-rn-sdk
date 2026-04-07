@@ -19,8 +19,8 @@ export class ChatRepositoryImpl implements ChatRepository {
         this.socketClient.disconnect();
     }
 
-    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void): Promise<{ channel: PhoenixChannel; messages: any[] }> {
-        return this.socketClient.joinRoom(roomId, onMessage, undefined, onReadReceipt);
+    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }> {
+        return this.socketClient.joinRoom(roomId, onMessage, undefined, onReadReceipt, force);
     }
 
     leaveRoom(roomId: string): void {

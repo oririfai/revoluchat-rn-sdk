@@ -56,7 +56,7 @@ export class ChatClient {
 
         try {
             this.socketClient.connect(config, userId);
-            
+
             // Fetch dynamic RTC config (STUN/TURN servers) from backend
             this.fetchRTCConfig();
 
@@ -64,7 +64,7 @@ export class ChatClient {
             // This ensures we receive 'call:incoming' and 'call:accepted' signals
             // even when not inside a chat room.
             this.joinUserChannel(userId);
-            
+
         } catch (error) {
             useChatStore.getState().setConnectionStatus('error');
             console.error('[Revoluchat SDK] Initialization failed', error);
@@ -83,8 +83,8 @@ export class ChatClient {
         }
     }
 
-    public async joinRoom(roomId: string): Promise<void> {
-        await this.joinRoomUseCase.execute({ roomId, userId: this.userId || undefined });
+    public async joinRoom(roomId: string, force?: boolean, silent?: boolean): Promise<void> {
+        await this.joinRoomUseCase.execute({ roomId, userId: this.userId || undefined, force, silent });
     }
 
     public leaveRoom(roomId: string): void {
@@ -127,14 +127,31 @@ export class ChatClient {
                         // Update existing call session status and metadata
                         if (event === 'call:accepted') {
                             console.log('[Revoluchat SDK] FORCE SYNC: Call Accepted');
-                            store.setActiveCall({ 
-                                ...activeCall, 
+                            store.setActiveCall({
+                                ...activeCall,
                                 status: 'connected',
                                 callerName: callData.caller_name || activeCall.callerName,
                                 receiverName: callData.receiver_name || activeCall.receiverName
                             });
                         } else if (event === 'call:rejected' || event === 'call:hangup') {
+                            // Captured room ID before clearing active call
+                            const roomToRefresh = activeCall.conversationId || store.activeChannelId;
                             store.setActiveCall(null);
+
+                            // --- ROBUST SYNC REFRESH ---
+                            // Wait for backend to generate system_call_summary (using longer 2.5s delay).
+                            // We refresh Inbox first, THEN Room history to ensure history wins.
+                            setTimeout(async () => {
+                                if (roomToRefresh) {
+                                    console.log('[Revoluchat SDK] Force refreshing room (silent):', roomToRefresh);
+
+                                    // 1. Refresh broad inbox list (gets updated unread counts)
+                                    await this.getConversations();
+
+                                    // 2. Force fresh history (overwrites stale inbox preview with actual history)
+                                    await this.joinRoom(roomToRefresh, true, true);
+                                }
+                            }, 2500);
                         }
                     }
                 }
@@ -144,7 +161,7 @@ export class ChatClient {
             if (payload.conversation_id && payload.last_message) {
                 const lastMessage = MessageMapper.mapPayloadToMessage(payload.last_message, payload.conversation_id);
                 const channel = store.channels.find(c => c.id === payload.conversation_id);
-                
+
                 // Only increment unread if we are not the sender AND not currently in this room
                 const isSender = lastMessage.sender.id?.toString() === userId?.toString();
                 const isActiveRoom = store.activeChannelId === payload.conversation_id;

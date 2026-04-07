@@ -186,13 +186,20 @@ export class ChatSocketClient {
             config.onSessionExpired?.();
         }
     }
-    public joinRoom(roomId: string, onMessage: (msg: any) => void, onCall?: (event: string, payload: any) => void, onReadReceipt?: (payload: any) => void): Promise<{ channel: Channel; messages: any[] }> {
+    public joinRoom(roomId: string, onMessage: (msg: any) => void, onCall?: (event: string, payload: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: Channel; messages: any[] }> {
         // ALWAYS update the callbacks for this room, even if already joined
+        this.roomChannels.get(roomId);
         this.roomCallbacks.set(roomId, { onMessage, onCall, onReadReceipt });
 
-        // If already joined, return resolved promise
-        if (this.roomChannels.has(roomId)) {
+        // If already joined and NOT forcing a refresh, return resolved promise
+        if (this.roomChannels.has(roomId) && !force) {
             return Promise.resolve({ channel: this.roomChannels.get(roomId)!, messages: [] });
+        }
+
+        // If forcing, leave first
+        if (force && this.roomChannels.has(roomId)) {
+            console.log(`[Revoluchat SDK] Force re-joining room ${roomId}`);
+            this.leaveRoom(roomId);
         }
 
         // If already in progress, return the existing promise
@@ -494,6 +501,38 @@ export class ChatSocketClient {
             return json.data;
         } catch (error) {
             console.error('[ChatSocketClient] Error fetching RTC config', error);
+            throw error;
+        }
+    }
+
+    public async getCallHistory(): Promise<any[]> {
+        if (!this.currentConfig) {
+            throw new Error('[ChatSocketClient] Config not initialized. Connect first.');
+        }
+
+        const { baseUrl, authToken, tenantId, appId, apiKey } = this.currentConfig;
+        const url = `${baseUrl}/api/v1/calls/history`;
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`,
+                    'x-tenant-id': tenantId,
+                    'x-app-id': appId,
+                    'x-api-key': apiKey,
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`[ChatSocketClient] Failed to fetch call history: ${response.status}`);
+            }
+
+            const json = await response.json();
+            return json.data;
+        } catch (error) {
+            console.error('[ChatSocketClient] Error fetching call history', error);
             throw error;
         }
     }

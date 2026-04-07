@@ -90,3 +90,4 @@ export const usePresence = (roomId: string) => {
 
 export * from './useCallControls';
 export * from './useChannel';
+export * from './useCallHistory';

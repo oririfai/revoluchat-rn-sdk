@@ -32,7 +32,17 @@ export class RTCConnection {
             }
         });
 
+        // @ts-ignore - native react-native-webrtc event
+        this.pc.addEventListener('addstream', (event: any) => {
+            console.log('[RTCConnection] addstream event fired');
+            if (event.stream) {
+                this.onTrack(event.stream);
+            }
+        });
+
         this.pc.addEventListener('track', (event) => {
+            console.log('[RTCConnection] track event fired');
+            // We still keep track as a fallback, but rely on addstream for the full object
             if (event.streams && event.streams[0]) {
                 this.onTrack(event.streams[0]);
             }
@@ -58,6 +68,9 @@ export class RTCConnection {
 
     public async handleOffer(offer: RTCSessionDescription): Promise<RTCSessionDescription> {
         if (!this.pc) await this.createPeerConnection();
+        if (this.pc!.signalingState !== 'stable') {
+            console.warn('[RTCConnection] handleOffer called while not in stable state:', this.pc!.signalingState);
+        }
         await this.pc!.setRemoteDescription(new RTCSessionDescription(offer));
         this.isRemoteDescriptionSet = true;
         this.processIceCandidateQueue();
@@ -69,6 +82,10 @@ export class RTCConnection {
 
     public async handleAnswer(answer: RTCSessionDescription): Promise<void> {
         if (!this.pc) throw new Error('PeerConnection not initialized');
+        if (this.pc.signalingState === 'stable') {
+            console.log('[RTCConnection] Ignoring answer, connection is already stable (duplicate signal?).');
+            return;
+        }
         await this.pc.setRemoteDescription(new RTCSessionDescription(answer));
         this.isRemoteDescriptionSet = true;
         this.processIceCandidateQueue();
@@ -76,7 +93,7 @@ export class RTCConnection {
 
     public async addIceCandidate(candidate: RTCIceCandidate): Promise<void> {
         if (!this.pc) throw new Error('PeerConnection not initialized');
-        
+
         const iceCandidate = new RTCIceCandidate(candidate);
         if (this.isRemoteDescriptionSet && this.pc.remoteDescription) {
             await this.pc.addIceCandidate(iceCandidate);
@@ -101,7 +118,19 @@ export class RTCConnection {
 
     public addStream(stream: MediaStream): void {
         if (!this.pc) throw new Error('PeerConnection not initialized');
-        
+
+        try {
+            // @ts-ignore - native react-native-webrtc method which perfectly syncs audio/video
+            if (typeof this.pc.addStream === 'function') {
+                // @ts-ignore
+                this.pc.addStream(stream);
+                console.log('[RTCConnection] Stream fully added via pc.addStream()');
+                return;
+            }
+        } catch (e) {
+            console.warn('[RTCConnection] pc.addStream fallback failed, trying addTrack', e);
+        }
+
         const senders = typeof this.pc.getSenders === 'function' ? this.pc.getSenders() : [];
         stream.getTracks().forEach((track) => {
             // Prevent adding the same track twice
@@ -109,10 +138,27 @@ export class RTCConnection {
             if (!isAlreadyAdded) {
                 try {
                     this.pc!.addTrack(track, stream);
+                    console.log(`[RTCConnection] Track added: ${track.kind}`);
                 } catch (e) {
                     console.warn('[RTCConnection] Error adding track:', e);
                 }
             }
+        });
+    }
+
+    public switchCamera(stream: MediaStream): void {
+        stream.getVideoTracks().forEach(track => {
+            // @ts-ignore - react-native-webrtc specific method
+            if (typeof track._switchCamera === 'function') {
+                // @ts-ignore
+                track._switchCamera();
+            }
+        });
+    }
+
+    public toggleVideo(stream: MediaStream, enabled: boolean): void {
+        stream.getVideoTracks().forEach(track => {
+            track.enabled = enabled;
         });
     }
 

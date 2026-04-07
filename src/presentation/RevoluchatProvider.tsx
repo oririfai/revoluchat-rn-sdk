@@ -3,6 +3,7 @@ import { ChatClient } from './ChatClient';
 import { useChatStore } from '../data/datasources/ChatStore';
 import { TenantConfig } from '../domain/entities/TenantConfig';
 import { CallModal } from './components/CallModal';
+import { CallProvider } from './CallProvider';
 import { RevoluchatTheme, defaultTheme } from './theme';
 
 interface RevoluchatContextType {
@@ -48,8 +49,10 @@ export const RevoluchatProvider: React.FC<RevoluchatProviderProps> = ({
 
   return (
     <RevoluchatContext.Provider value={{ client, userId, connectionStatus, theme }}>
-      {children}
-      <CallModal />
+      <CallProvider>
+        {children}
+        <CallModal />
+      </CallProvider>
     </RevoluchatContext.Provider>
   );
 };

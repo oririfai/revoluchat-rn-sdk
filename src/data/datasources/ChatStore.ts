@@ -99,12 +99,18 @@ export const useChatStore = create<ChatState>()(
                 };
             }),
 
-            setMessages: (channelId, messages) => set((state) => ({
-                messagesByChannel: {
-                    ...state.messagesByChannel,
-                    [channelId]: messages
-                }
-            })),
+            setMessages: (channelId, messages) => set((state) => {
+                const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+                return {
+                    messagesByChannel: {
+                        ...state.messagesByChannel,
+                        [channelId]: messages
+                    },
+                    channels: lastMessage 
+                        ? state.channels.map(ch => ch.id === channelId ? { ...ch, lastMessage } : ch)
+                        : state.channels
+                };
+            }),
 
             setConnectionStatus: (status) => set({ connectionStatus: status }),
 

@@ -15,6 +15,8 @@ export * from './presentation/components/ChannelList';
 export * from './presentation/components/MessageList';
 export * from './presentation/components/ChatHeader';
 export * from './presentation/components/MessageInput';
+export * from './presentation/components/CallHistoryList';
+export * from './presentation/components/Icons';
 export * from './presentation/Notifications';
 
 // Utils
