@@ -22,14 +22,18 @@ export const useChannel = (roomId: string) => {
         ? channel.members.find(m => m.id?.toString() !== myUserId?.toString()) 
         : null;
 
-    // Check if receiver is online
-    const isOnline = receiver 
-        ? presences.some(p => p.id?.toString() === receiver.id?.toString()) 
-        : false;
+    // Check if receiver is online and typing
+    const receiverPresence = receiver 
+        ? presences.find(p => p.id?.toString() === receiver.id?.toString()) 
+        : null;
+
+    const isOnline = !!receiverPresence;
+    const isTyping = receiverPresence?.typing === true;
 
     return {
         channel,
         receiver,
-        isOnline
+        isOnline,
+        isTyping
     };
 };

@@ -5,7 +5,19 @@ import { Channel } from '../../domain/entities/Channel';
 import { Message } from '../../domain/entities/Message';
 import { CallSession } from '../../domain/entities/Call';
 
-const storage = new MMKV();
+const MESSAGE_LIMIT = 100;
+
+let storage: MMKV;
+try {
+    storage = new MMKV({
+        id: 'revoluchat-storage',
+        encryptionKey: 'revolu-chat-secure-storage-key32'
+    });
+    console.log('[Revoluchat SDK] MMKV Secure storage enabled');
+} catch (e) {
+    console.warn('[Revoluchat SDK] MMKV Security failed, falling back to unencrypted:', e);
+    storage = new MMKV();
+}
 
 const mmkvStorage = {
     setItem: (name: string, value: string) => storage.set(name, value),
@@ -20,19 +32,33 @@ export interface ChatState {
     connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
     activeCall: CallSession | null;
     activeChannelId: string | null;
+    replyingTo: Message | null;
+    inputHeight: number;
+    isUploading: boolean;
     iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }>;
+    downloadedAttachments: string[];
+    hasMoreByRoom: Record<string, boolean>;
+
 
     setChannels: (channels: Channel[]) => void;
     upsertChannel: (channel: Channel) => void;
     updateChannel: (channel: Partial<Channel> & { id: string }) => void;
     addMessage: (channelId: string, message: Message) => void;
+    prependMessages: (channelId: string, messages: Message[], hasMore: boolean) => void;
     setMessages: (channelId: string, messages: Message[]) => void;
+
     updateMessageStatus: (channelId: string, messageId: string, status: Message['status']) => void;
+    markMessageAsDeleted: (channelId: string, messageId: string, deletedAt: Date) => void;
     setConnectionStatus: (status: ChatState['connectionStatus']) => void;
     setActiveCall: (call: CallSession | null | ((prev: CallSession | null) => CallSession | null)) => void;
     setActiveChannelId: (id: string | null) => void;
     resetUnreadCount: (channelId: string) => void;
+    setReplyingTo: (message: Message | null) => void;
+    setInputHeight: (height: number) => void;
+    setIsUploading: (val: boolean) => void;
     setIceServers: (servers: Array<{ urls: string | string[]; username?: string; credential?: string }>) => void;
+    markAttachmentAsDownloaded: (attachmentId: string) => void;
+    clearAll: () => void;
 }
 
 
@@ -44,6 +70,12 @@ export const useChatStore = create<ChatState>()(
             connectionStatus: 'disconnected',
             activeCall: null,
             activeChannelId: null,
+            replyingTo: null,
+            inputHeight: 80,
+            isUploading: false,
+            downloadedAttachments: [],
+            hasMoreByRoom: {},
+
 
             setChannels: (channels) => set({ channels }),
             
@@ -75,8 +107,8 @@ export const useChatStore = create<ChatState>()(
                     return state;
                 }
                 
-                // Update messages
-                const nextMessages = [...channelMessages, message];
+                // Update messages & apply limit
+                const nextMessages = [...channelMessages, message].slice(-MESSAGE_LIMIT);
                 
                 // Update the channel's last message in the list
                 const nextChannels = state.channels.map((ch) =>
@@ -98,13 +130,36 @@ export const useChatStore = create<ChatState>()(
                     channels: nextChannels
                 };
             }),
+            
+            prependMessages: (channelId, messages, hasMore) => set((state) => {
+                const channelMessages = state.messagesByChannel[channelId] || [];
+                // Only add messages that don't already exist
+                const existingIds = new Set(channelMessages.map(m => m.id));
+                const newMessages = messages.filter(m => !existingIds.has(m.id));
+                
+                const nextMessages = [...newMessages, ...channelMessages].slice(-MESSAGE_LIMIT);
 
-            setMessages: (channelId, messages) => set((state) => {
-                const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
                 return {
                     messagesByChannel: {
                         ...state.messagesByChannel,
-                        [channelId]: messages
+                        [channelId]: nextMessages
+                    },
+                    hasMoreByRoom: {
+                        ...state.hasMoreByRoom,
+                        [channelId]: hasMore
+                    }
+                };
+            }),
+
+
+            setMessages: (channelId, messages) => set((state) => {
+                const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+                const nextMessages = messages.slice(-MESSAGE_LIMIT);
+
+                return {
+                    messagesByChannel: {
+                        ...state.messagesByChannel,
+                        [channelId]: nextMessages
                     },
                     channels: lastMessage 
                         ? state.channels.map(ch => ch.id === channelId ? { ...ch, lastMessage } : ch)
@@ -129,6 +184,16 @@ export const useChatStore = create<ChatState>()(
                     }
                 };
             }),
+
+            markMessageAsDeleted: (channelId, messageId, deletedAt) => set((state) => {
+                const messages = state.messagesByChannel[channelId] || [];
+                return {
+                    messagesByChannel: {
+                        ...state.messagesByChannel,
+                        [channelId]: messages.map(m => m.id === messageId ? { ...m, deletedAt } : m),
+                    }
+                };
+            }),
             
             resetUnreadCount: (channelId) => set((state) => ({
                 channels: state.channels.map((c) =>
@@ -136,12 +201,39 @@ export const useChatStore = create<ChatState>()(
                 )
             })),
 
+            setReplyingTo: (message) => set({ replyingTo: message }),
+
+            setInputHeight: (height) => set({ inputHeight: height }),
+
+            setIsUploading: (val) => set({ isUploading: val }),
+
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
             ],
 
             setIceServers: (iceServers) => set({ iceServers }),
+
+            markAttachmentAsDownloaded: (attachmentId: string) => set((state) => {
+                if (!state.downloadedAttachments.includes(attachmentId)) {
+                    return { downloadedAttachments: [...state.downloadedAttachments, attachmentId] };
+                }
+                return state;
+            }),
+
+            clearAll: () => {
+                storage.clearAll();
+                set({
+                    channels: [],
+                    messagesByChannel: {},
+                    connectionStatus: 'disconnected',
+                    activeCall: null,
+                    activeChannelId: null,
+                    replyingTo: null,
+                    downloadedAttachments: [],
+                    hasMoreByRoom: {},
+                });
+            },
         }),
         {
             name: 'revoluchat-storage',
@@ -150,8 +242,11 @@ export const useChatStore = create<ChatState>()(
                 channels: state.channels,
                 messagesByChannel: state.messagesByChannel,
                 iceServers: state.iceServers,
+                downloadedAttachments: state.downloadedAttachments,
+                hasMoreByRoom: state.hasMoreByRoom,
                 // activeCall is NOT persisted
             }),
+
         }
     )
 );

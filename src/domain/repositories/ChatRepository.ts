@@ -7,10 +7,11 @@ import { User } from '../entities/User';
 export interface ChatRepository {
     connect(config: TenantConfig, userId: string): void;
     disconnect(): void;
-    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }>;
+    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, onMessageDeleted?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }>;
     leaveRoom(roomId: string): void;
     sendMessage(roomId: string, messageBody: any): Promise<void>;
     markAsRead(roomId: string, messageId: string): void;
+    deleteMessage(roomId: string, messageId: string): void;
     getPresences(roomId: string): any[];
     uploadMedia(
         file: { uri: string; name: string; type: string },
@@ -35,7 +36,9 @@ export interface ChatRepository {
     }>;
     confirmAttachment(id: string, config: TenantConfig): Promise<void>;
     getConversations(config: TenantConfig, currentUserId: string, search?: string): Promise<Channel[]>;
+    getMessages(config: TenantConfig, roomId: string, opts?: { before_id?: string; limit?: number; search?: string }): Promise<{ messages: any[]; has_more: boolean; next_cursor: string }>;
     getContacts(config: TenantConfig): Promise<User[]>;
+
     addContact(config: TenantConfig, phone: string): Promise<any>;
     createConversation(config: TenantConfig, currentUserId: string, targetUserId: string): Promise<Channel>;
 }

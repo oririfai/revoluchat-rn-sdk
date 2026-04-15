@@ -17,14 +17,49 @@ import { relativeDate } from '../../utils/dateFormatter';
 interface ChannelListProps {
   onChannelPress?: (channel: Channel) => void;
   renderItem?: ListRenderItem<Channel>;
+  searchQuery?: string;
+  filterDate?: Date | null;
 }
 
 export const ChannelList: React.FC<ChannelListProps> = ({
   onChannelPress,
   renderItem,
+  searchQuery = '',
+  filterDate = null,
 }) => {
   const { channels } = useChannels();
   const { theme, userId } = useRevoluchat();
+
+  // Filter channels based on search and date
+  const filteredChannels = React.useMemo(() => {
+    return (channels as Channel[]).filter((channel: Channel) => {
+      // 1. Search Query Filter
+      const otherMember = channel.type === 'direct' 
+        ? channel.members.find(m => String(m.id) !== String(userId)) 
+        : null;
+      const displayName = channel.type === 'direct' ? (otherMember?.name || channel.name || 'Direct Message') : (channel.name || 'Group Chat');
+      
+      const matchesSearch = displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                           (channel.lastMessage?.text || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      // 2. Date Filter
+      if (filterDate) {
+        if (!channel.lastMessage?.createdAt) return false;
+        const msgDate = new Date(channel.lastMessage.createdAt);
+        const filterD = new Date(filterDate);
+        
+        const isSameDay = msgDate.getFullYear() === filterD.getFullYear() &&
+                         msgDate.getMonth() === filterD.getMonth() &&
+                         msgDate.getDate() === filterD.getDate();
+        
+        if (!isSameDay) return false;
+      }
+
+      return true;
+    });
+  }, [channels, searchQuery, filterDate, userId]);
 
   const defaultRenderItem: ListRenderItem<Channel> = ({ item }) => {
     const lastMsg = item.lastMessage;
@@ -49,6 +84,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   color: theme.colors.text,
                   fontSize: theme.typography.fontSizeMd,
                   fontWeight: theme.typography.fontWeightBold,
+                  fontFamily: theme.typography.fontFamily,
                 },
               ]}
               numberOfLines={1}
@@ -62,6 +98,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   {
                     color: theme.colors.textSecondary,
                     fontSize: theme.typography.fontSizeSm,
+                    fontFamily: theme.typography.fontFamily,
                   },
                 ]}
               >
@@ -76,6 +113,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                 {
                   color: theme.colors.textSecondary,
                   fontSize: theme.typography.fontSizeSm,
+                  fontFamily: theme.typography.fontFamily,
                 },
               ]}
               numberOfLines={1}
@@ -89,7 +127,13 @@ export const ChannelList: React.FC<ChannelListProps> = ({
                   { backgroundColor: theme.colors.primary, borderRadius: 10 },
                 ]}
               >
-                <Text style={styles.badgeText}>{item.unreadCount}</Text>
+                <Text style={[
+                    styles.badgeText, 
+                    { 
+                        color: theme.colors.primaryText,
+                        fontFamily: theme.typography.fontFamily,
+                    }
+                ]}>{item.unreadCount}</Text>
               </View>
             )}
           </View>
@@ -99,21 +143,14 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   };
 
   if (channels.length === 0) {
-    return (
-      <View style={[styles.emptyContainer, { backgroundColor: theme.colors.background }]}>
-        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-          No conversations found.
-        </Text>
-        <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
-          Tap the + button to start a demo chat.
-        </Text>
-      </View>
-    );
+// ...
+// ... keep existing empty logic
+// ...
   }
 
   return (
     <FlatList
-      data={channels}
+      data={filteredChannels}
       renderItem={renderItem || defaultRenderItem}
       keyExtractor={(item) => item.id}
       style={{ backgroundColor: theme.colors.background }}

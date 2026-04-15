@@ -18,5 +18,8 @@ export interface Message {
     createdAt: Date;
     displayTime?: string;
     updatedAt: Date;
+    deletedAt?: Date;
+    replyToId?: string;
+    replyTo?: Message;
     metadata?: Record<string, any>;
 }

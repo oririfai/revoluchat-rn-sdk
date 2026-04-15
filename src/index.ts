@@ -18,6 +18,7 @@ export * from './presentation/components/MessageInput';
 export * from './presentation/components/CallHistoryList';
 export * from './presentation/components/Icons';
 export * from './presentation/Notifications';
+export * from './presentation/CallProvider';
 
 // Utils
 export * from './utils/jwtUtils';

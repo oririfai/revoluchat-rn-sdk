@@ -4,7 +4,11 @@ import { useRevoluchat } from '../RevoluchatProvider';
 import { useChannel } from '../hooks/useChannel';
 import { useCallContext } from '../CallProvider';
 import { Avatar } from './Avatar';
-import { BackIcon, PhoneIcon, VideoIcon } from './Icons';
+import { BackIcon, PhoneIcon, VideoIcon, SearchIcon, CloseIcon, MenuDotsVerticalIcon, ChevronUpIcon, ChevronDownIcon } from './Icons';
+
+import { TextInput, Modal, Pressable, Dimensions } from 'react-native';
+
+
 
 interface ChatHeaderProps {
   roomId: string;
@@ -13,7 +17,17 @@ interface ChatHeaderProps {
   containerStyle?: ViewStyle;
   titleStyle?: TextStyle;
   statusStyle?: TextStyle;
+  isSearching?: boolean;
+  searchQuery?: string;
+  onSearchQueryChange?: (query: string) => void;
+  onToggleSearch?: () => void;
+  searchResultsCount?: number;
+  currentResultIndex?: number;
+  onNextResult?: () => void;
+  onPrevResult?: () => void;
 }
+
+
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   roomId,
@@ -22,10 +36,22 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   containerStyle,
   titleStyle,
   statusStyle,
+  isSearching,
+  searchQuery,
+  onSearchQueryChange,
+  onToggleSearch,
+  searchResultsCount = 0,
+  currentResultIndex = 0,
+  onNextResult,
+  onPrevResult,
 }) => {
-  const { theme } = useRevoluchat();
-  const { receiver, isOnline } = useChannel(roomId);
+
+
+  const { theme, tier } = useRevoluchat();
+  const { receiver, isOnline, isTyping } = useChannel(roomId);
   const { initiateCall } = useCallContext();
+  const [isMenuVisible, setIsMenuVisible] = React.useState(false);
+
 
   const handleAudioCall = () => {
     if (receiver) {
@@ -39,62 +65,149 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     }
   };
 
-  if (!receiver) {
-      return (
-          <View style={[styles.container, { backgroundColor: theme.colors.primary }, containerStyle]}>
-              {showBack && (
-                  <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                      <BackIcon size={24} color="#FFFFFF" />
-                  </TouchableOpacity>
-              )}
-              <Text style={[styles.title, { color: '#FFFFFF' }, titleStyle]}>Chat</Text>
-              <View style={{ flex: 1 }} />
-              <View style={styles.callButtons}>
-                <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
-                  <PhoneIcon size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
-                  <VideoIcon size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-          </View>
-      );
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.primary }, containerStyle]}>
-      {showBack && (
+      {showBack && !isSearching && (
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <BackIcon size={24} color="#FFFFFF" />
+          <BackIcon size={24} color={theme.colors.primaryText} />
         </TouchableOpacity>
       )}
+
+      {isSearching && (
+        <View style={{ width: 12 }} /> // Spacing for hidden back button
+      )}
+
       
-      <View style={styles.content}>
-        <Avatar 
-            uri={receiver.avatarUrl} 
-            name={receiver.name} 
-            size={40} 
-            showOnline={true} 
-            isOnline={isOnline} 
-        />
-        <View style={styles.info}>
-          <Text style={[styles.title, { color: '#FFFFFF' }, titleStyle]} numberOfLines={1}>
-            {receiver.name}
-          </Text>
-          <Text style={[styles.status, { color: 'rgba(255,255,255,0.8)' }, statusStyle]}>
-            {isOnline ? 'Online' : 'Offline'}
-          </Text>
+      {isSearching ? (
+        <View style={styles.content}>
+          <TextInput
+            style={[styles.searchInput, { color: theme.colors.primaryText, fontFamily: theme.typography.fontFamily }]}
+            placeholder="Cari pesan..."
+            placeholderTextColor="rgba(255,255,255,0.6)"
+            value={searchQuery}
+            onChangeText={onSearchQueryChange}
+            autoFocus
+          />
+          {searchQuery !== '' && (
+            <View style={styles.searchNav}>
+              <Text style={[styles.matchIndicator, { color: theme.colors.primaryText }]}>
+                {searchResultsCount > 0 ? `${currentResultIndex + 1} / ${searchResultsCount}` : '0 / 0'}
+              </Text>
+              <TouchableOpacity 
+                onPress={searchResultsCount > 0 ? onPrevResult : undefined} 
+                style={[styles.navButton, searchResultsCount === 0 && { opacity: 0.3 }]}
+                disabled={searchResultsCount === 0}
+              >
+                <ChevronUpIcon size={20} color={theme.colors.primaryText} />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                onPress={searchResultsCount > 0 ? onNextResult : undefined} 
+                style={[styles.navButton, searchResultsCount === 0 && { opacity: 0.3 }]}
+                disabled={searchResultsCount === 0}
+              >
+                <ChevronDownIcon size={20} color={theme.colors.primaryText} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      </View>
+
+
+      ) : (
+        <View style={styles.content}>
+          <Avatar 
+              uri={receiver?.avatarUrl} 
+              name={receiver?.name || 'User'} 
+              size={40} 
+              showOnline={true} 
+              isOnline={isOnline} 
+          />
+          <View style={styles.info}>
+            <Text style={[
+                styles.title, 
+                { 
+                    color: theme.colors.primaryText,
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.fontSizeLg,
+                    fontWeight: theme.typography.fontWeightBold,
+                }, 
+                titleStyle
+            ]} numberOfLines={1}>
+              {receiver?.name}
+            </Text>
+            <Text style={[
+                styles.status, 
+                { 
+                    color: 'rgba(255,255,255,0.8)',
+                    fontFamily: theme.typography.fontFamily,
+                    fontSize: theme.typography.fontSizeSm,
+                }, 
+                statusStyle
+            ]}>
+              {isTyping ? 'Sedang mengetik...' : (isOnline ? 'Online' : 'Offline')}
+            </Text>
+          </View>
+        </View>
+      )}
+
 
       <View style={styles.callButtons}>
-        <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
-          <PhoneIcon size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
-          <VideoIcon size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        {isSearching ? (
+          <TouchableOpacity style={styles.iconButton} onPress={onToggleSearch}>
+            <CloseIcon size={20} color={theme.colors.primaryText} />
+          </TouchableOpacity>
+        ) : (
+          <>
+            {tier === 'pro' && (
+              <TouchableOpacity style={styles.iconButton} onPress={handleVideoCall}>
+                <VideoIcon size={20} color={theme.colors.primaryText} />
+              </TouchableOpacity>
+            )}
+            {(tier === 'standard' || tier === 'pro') && (
+              <TouchableOpacity style={styles.iconButton} onPress={handleAudioCall}>
+                <PhoneIcon size={20} color={theme.colors.primaryText} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.iconButton} onPress={() => setIsMenuVisible(true)}>
+              <MenuDotsVerticalIcon size={20} color={theme.colors.primaryText} />
+            </TouchableOpacity>
+          </>
+        )}
       </View>
+
+      <Modal
+        visible={isMenuVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsMenuVisible(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay} 
+          onPress={() => setIsMenuVisible(false)}
+        >
+          <View style={[
+            styles.menuDropdown, 
+            { 
+              backgroundColor: theme.colors.surface || '#FFFFFF',
+              borderRadius: theme.roundness,
+            }
+          ]}>
+            <TouchableOpacity 
+              style={styles.menuItem} 
+              onPress={() => {
+                setIsMenuVisible(false);
+                onToggleSearch?.();
+              }}
+            >
+              <SearchIcon size={20} color={theme.colors.text} />
+              <Text style={[styles.menuText, { color: theme.colors.text, fontFamily: theme.typography.fontFamily }]}>
+                Cari Pesan
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+
     </View>
   );
 };
@@ -137,7 +250,52 @@ const styles = StyleSheet.create({
   iconButton: {
     marginLeft: 12,
     padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    paddingVertical: 8,
+  },
+  searchNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 8,
+  },
+  matchIndicator: {
+    fontSize: 12,
+    marginRight: 8,
+    opacity: 0.9,
+  },
+  navButton: {
+    paddingHorizontal: 4,
+  },
+  modalOverlay: {
+
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  menuDropdown: {
+    position: 'absolute',
+    top: 50,
+    right: 16,
+    paddingVertical: 8,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    minWidth: 160,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+  },
+  menuText: {
+    marginLeft: 12,
+    fontSize: 14,
   },
 });
+
+

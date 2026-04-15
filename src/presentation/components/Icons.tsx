@@ -224,4 +224,138 @@ export const ReplyIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) =>
   </IconContainer>
 );
 
+export const DeleteIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path fillRule="evenodd" clipRule="evenodd" d="M9 2C8.62123 2 8.27497 2.214 8.10557 2.55279L7.38197 4H4C3.44772 4 3 4.44772 3 5C3 5.55228 3.44772 6 4 6L4 16C4 17.1046 4.89543 18 6 18H14C15.1046 18 16 17.1046 16 16V6C16.5523 6 17 5.55228 17 5C17 4.44772 16.5523 4 16 4H12.618L11.8944 2.55279C11.725 2.214 11.3788 2 11 2H9ZM7 8C7 7.44772 7.44772 7 8 7C8.55228 7 9 7.44772 9 8V14C9 14.5523 8.55228 15 8 15C7.44772 15 7 14.5523 7 14V8ZM12 7C11.4477 7 11 7.44772 11 8V14C11 14.5523 11.4477 15 12 15C12.5523 15 13 14.5523 13 14V8C13 7.44772 12.5523 7 12 7Z" fill={color as string}/>
+    </Svg>
+  </IconContainer>
+);
+
+export const BannedIcon: React.FC<IconProps> = ({ size = 24, color = '#000' }) => (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+        <Path fillRule="evenodd" clipRule="evenodd" d="M18 10C18 14.4183 14.4183 18 10 18C5.58172 18 2 14.4183 2 10C2 5.58172 5.58172 2 10 2C14.4183 2 18 5.58172 18 10ZM13.4766 14.8907C12.4958 15.5892 11.2959 16 10 16C6.68629 16 4 13.3137 4 10C4 8.70414 4.41081 7.50423 5.1093 6.52339L13.4766 14.8907ZM14.8908 13.4765L6.52354 5.1092C7.50434 4.41077 8.7042 4 10 4C13.3137 4 16 6.68629 16 10C16 11.2958 15.5892 12.4957 14.8908 13.4765Z" fill={color}/>
+    </Svg>
+);
+
+export const ScrollDownIcon: React.FC<IconProps> = ({ size = 20, color = '#404040' }) => (
+    <IconContainer size={size}>
+        <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+            <Path fillRule="evenodd" clipRule="evenodd" d="M15.7071 4.29289C16.0976 4.68342 16.0976 5.31658 15.7071 5.70711L10.7071 10.7071C10.3166 11.0976 9.68342 11.0976 9.29289 10.7071L4.29289 5.70711C3.90237 5.31658 3.90237 4.68342 4.29289 4.29289C4.68342 3.90237 5.31658 3.90237 5.70711 4.29289L10 8.58579L14.2929 4.29289C14.6834 3.90237 15.3166 3.90237 15.7071 4.29289ZM15.7071 10.2929C16.0976 10.6834 16.0976 11.3166 15.7071 11.7071L10.7071 16.7071C10.3166 17.0976 9.68342 17.0976 9.29289 16.7071L4.29289 11.7071C3.90237 11.3166 3.90237 10.6834 4.29289 10.2929C4.68342 9.90237 5.31658 9.90237 5.70711 10.2929L10 14.5858L14.2929 10.2929C14.6834 9.90237 15.3166 9.90237 15.7071 10.2929Z" fill={color as string}/>
+        </Svg>
+    </IconContainer>
+);
+export const StarIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const ForwardMessageIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 12L14 5V9C7 9 4 14 3 19C5.5 15.5 9 13.9 14 13.9V18L21 12Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const MenuDotsVerticalIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 13C12.5523 13 13 12.5523 13 12C13 11.4477 12.5523 11 12 11C11.4477 11 11 11.4477 11 12C11 12.5523 11.4477 13 12 13Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M12 20C12.5523 20 13 19.5523 13 19C13 18.4477 12.5523 18 12 18C11.4477 18 11 18.4477 11 19C11 19.5523 11.4477 20 12 20Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const SmileIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M8 14C8 14 9.5 16 12 16C14.5 16 16 14 16 14" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M9 9H9.01" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M15 9H15.01" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const ChatNewIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path 
+        fillRule="evenodd" 
+        clipRule="evenodd" 
+        d="M18 5V13C18 14.1046 17.1046 15 16 15H11L6 19V15H4C2.89543 15 2 14.1046 2 13V5C2 3.89543 2.89543 3 4 3H16C17.1046 3 18 3.89543 18 5ZM7 8H5V10H7V8ZM9 8H11V10H9V8ZM15 8H13V10H15V8Z" 
+        fill={color as string}
+      />
+    </Svg>
+  </IconContainer>
+);
+
+export const DownloadIcon: React.FC<IconProps> = ({ size = 20, color = '#404040' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path 
+        fillRule="evenodd" 
+        clipRule="evenodd" 
+        d="M3 17C3 16.4477 3.44772 16 4 16H16C16.5523 16 17 16.4477 17 17C17 17.5523 16.5523 18 16 18H4C3.44772 18 3 17.5523 3 17ZM6.29289 9.29289C6.68342 8.90237 7.31658 8.90237 7.70711 9.29289L9 10.5858L9 3C9 2.44772 9.44771 2 10 2C10.5523 2 11 2.44771 11 3L11 10.5858L12.2929 9.29289C12.6834 8.90237 13.3166 8.90237 13.7071 9.29289C14.0976 9.68342 14.0976 10.3166 13.7071 10.7071L10.7071 13.7071C10.5196 13.8946 10.2652 14 10 14C9.73478 14 9.48043 13.8946 9.29289 13.7071L6.29289 10.7071C5.90237 10.3166 5.90237 9.68342 6.29289 9.29289Z" 
+        fill={color as string}
+      />
+    </Svg>
+  </IconContainer>
+);
+
+export const SearchIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const CalendarIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M16 2V6M8 2V6M3 10H21" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const CloseIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6L18 18" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const ChevronUpIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 15L12 9L6 15" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+export const ChevronDownIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9L12 15L18 9" stroke={color as string} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  </IconContainer>
+);
+
+
+export const ContactIcon: React.FC<IconProps> = ({ size = 24, color = '#333' }) => (
+  <IconContainer size={size}>
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path fillRule="evenodd" clipRule="evenodd" d="M10 9C11.6569 9 13 7.65685 13 6C13 4.34315 11.6569 3 10 3C8.34315 3 7 4.34315 7 6C7 7.65685 8.34315 9 10 9ZM3 15.5C3 13.567 4.567 12 6.5 12H13.5C15.433 12 17 13.567 17 15.5V17H3V15.5Z" fill={color as string}/>
+    </Svg>
+  </IconContainer>
+);
+
 const styles = StyleSheet.create({});

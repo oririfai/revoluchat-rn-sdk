@@ -5,6 +5,7 @@ export interface TenantConfig {
     socketUrl: string;
     apiKey: string;
     authToken?: string;
+    tier?: 'basic' | 'standard' | 'pro';
     heartbeatIntervalMs?: number;
     reconnectAfterMs?: (tries: number) => number;
 

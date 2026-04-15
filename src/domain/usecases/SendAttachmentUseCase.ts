@@ -8,12 +8,13 @@ interface SendAttachmentParams {
     config: TenantConfig;
     userId: string;
     text?: string;
+    replyToId?: string;
 }
 
 export class SendAttachmentUseCase implements UseCase<void, SendAttachmentParams> {
     constructor(private chatRepository: ChatRepository) { }
 
-    async execute({ roomId, files, config, userId, text }: SendAttachmentParams): Promise<void> {
+    async execute({ roomId, files, config, userId, text, replyToId }: SendAttachmentParams): Promise<void> {
         try {
             // 1. Process all files through the 3-step Elixir flow
             const attachments: any[] = [];
@@ -55,6 +56,7 @@ export class SendAttachmentUseCase implements UseCase<void, SendAttachmentParams
                 body: JSON.stringify(extraData),
                 type: 'attachment',
                 attachment_id: primaryAttachment?.id,
+                reply_to_id: replyToId,
                 user_id: userId,
                 sent_at: new Date().toISOString(),
             };

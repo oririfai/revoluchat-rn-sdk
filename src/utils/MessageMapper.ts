@@ -59,6 +59,8 @@ export class MessageMapper {
             text: text,
             attachments: uniqueAttachments.length > 0 ? uniqueAttachments : undefined,
             status: payload.status || 'sent',
+            replyToId: payload.reply_to_id?.toString(),
+            deletedAt: payload.deleted_at ? new Date(payload.deleted_at) : undefined,
             createdAt: payload.inserted_at ? new Date(payload.inserted_at) : (payload.createdAt ? new Date(payload.createdAt) : new Date()),
             updatedAt: payload.updated_at ? new Date(payload.updated_at) : (payload.updatedAt ? new Date(payload.updatedAt) : new Date()),
             displayTime: new Date(payload.inserted_at || payload.createdAt || new Date()).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }),

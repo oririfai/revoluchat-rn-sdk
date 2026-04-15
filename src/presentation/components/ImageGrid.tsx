@@ -1,36 +1,101 @@
-import React from 'react';
-import { View, Image, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Image, StyleSheet, Dimensions, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Attachment } from '../../domain/entities/Message';
+import { useState, useRef, useEffect } from 'react';
 
 interface ImageGridProps {
   images: Attachment[];
   onImagePress?: (image: Attachment) => void;
+  onLongPress?: () => void;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const GRID_WIDTH = SCREEN_WIDTH * 0.75; // Adjust based on bubble max-width
+const GRID_WIDTH = SCREEN_WIDTH * 0.75; 
 
-export const ImageGrid: React.FC<ImageGridProps> = ({ images, onImagePress }) => {
-  if (images.length === 0) return null;
+/**
+ * Modern Shimmer Effect Component
+ */
+const ShimmerEffect = () => {
+  const shimmerValue = useRef(new Animated.Value(0)).current;
 
-  const renderImage = (image: Attachment, style: any) => (
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(shimmerValue, {
+        toValue: 1,
+        duration: 1500,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const translateX = shimmerValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-GRID_WIDTH, GRID_WIDTH],
+  });
+
+  return (
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: '#E1E1E2', overflow: 'hidden' }]}>
+      <Animated.View
+        style={[
+          {
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
+            transform: [{ translateX }, { skewX: '-20deg' }],
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
+const ImageItem: React.FC<{
+  image: Attachment;
+  style: any;
+  onPress?: () => void;
+  onLongPress?: () => void;
+}> = ({ image, style, onPress, onLongPress }) => {
+  const [loaded, setLoaded] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  const handleLoad = () => {
+    setLoaded(true);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
     <TouchableOpacity 
-        key={image.id} 
-        activeOpacity={0.8}
-        onPress={() => onImagePress?.(image)}
-        style={style}
+      activeOpacity={0.8}
+      onPress={onPress}
+      onLongPress={onLongPress}
+      style={[style, { overflow: 'hidden' }]}
     >
-      <Image 
+      {!loaded && <ShimmerEffect />}
+      <Animated.Image 
         source={{ uri: image.url }} 
-        style={styles.image} 
+        style={[styles.image, { opacity: fadeAnim }]}
+        onLoad={handleLoad}
       />
     </TouchableOpacity>
   );
+};
+
+export const ImageGrid: React.FC<ImageGridProps> = ({ images, onImagePress, onLongPress }) => {
+  if (images.length === 0) return null;
 
   if (images.length === 1) {
     return (
       <View style={styles.container}>
-        {renderImage(images[0], styles.singleImage)}
+        <ImageItem 
+          image={images[0]} 
+          style={styles.singleImage} 
+          onPress={() => onImagePress?.(images[0])}
+          onLongPress={onLongPress}
+        />
       </View>
     );
   }
@@ -38,9 +103,19 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, onImagePress }) =>
   if (images.length === 2) {
     return (
       <View style={[styles.container, styles.row]}>
-        {renderImage(images[0], styles.halfImage)}
+        <ImageItem 
+          image={images[0]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(images[0])}
+          onLongPress={onLongPress}
+        />
         <View style={styles.spacer} />
-        {renderImage(images[1], styles.halfImage)}
+        <ImageItem 
+          image={images[1]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(images[1])}
+          onLongPress={onLongPress}
+        />
       </View>
     );
   }
@@ -48,11 +123,26 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, onImagePress }) =>
   if (images.length === 3) {
     return (
       <View style={styles.container}>
-        {renderImage(images[0], styles.fullWidthImage)}
+        <ImageItem 
+          image={images[0]} 
+          style={styles.fullWidthImage} 
+          onPress={() => onImagePress?.(images[0])}
+          onLongPress={onLongPress}
+        />
         <View style={[styles.row, { marginTop: 4 }]}>
-          {renderImage(images[1], styles.halfImage)}
+          <ImageItem 
+            image={images[1]} 
+            style={styles.halfImage} 
+            onPress={() => onImagePress?.(images[1])}
+            onLongPress={onLongPress}
+          />
           <View style={styles.spacer} />
-          {renderImage(images[2], styles.halfImage)}
+          <ImageItem 
+            image={images[2]} 
+            style={styles.halfImage} 
+            onPress={() => onImagePress?.(images[2])}
+            onLongPress={onLongPress}
+          />
         </View>
       </View>
     );
@@ -63,14 +153,34 @@ export const ImageGrid: React.FC<ImageGridProps> = ({ images, onImagePress }) =>
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        {renderImage(displayImages[0], styles.halfImage)}
+        <ImageItem 
+          image={displayImages[0]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(displayImages[0])}
+          onLongPress={onLongPress}
+        />
         <View style={styles.spacer} />
-        {renderImage(displayImages[1], styles.halfImage)}
+        <ImageItem 
+          image={displayImages[1]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(displayImages[1])}
+          onLongPress={onLongPress}
+        />
       </View>
       <View style={[styles.row, { marginTop: 4 }]}>
-        {renderImage(displayImages[2], styles.halfImage)}
+        <ImageItem 
+          image={displayImages[2]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(displayImages[2])}
+          onLongPress={onLongPress}
+        />
         <View style={styles.spacer} />
-        {renderImage(displayImages[3], styles.halfImage)}
+        <ImageItem 
+          image={displayImages[3]} 
+          style={styles.halfImage} 
+          onPress={() => onImagePress?.(displayImages[3])}
+          onLongPress={onLongPress}
+        />
       </View>
     </View>
   );

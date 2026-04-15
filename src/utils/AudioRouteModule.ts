@@ -22,5 +22,32 @@ export const NativeAudioRoute = {
         } catch (e) {
             console.warn('[NativeAudioRoute] Error stopping audio route', e);
         }
+    },
+    startRingback: (filename: string) => {
+        try {
+            if (AudioRouteModule && AudioRouteModule.startRingback) {
+                AudioRouteModule.startRingback(filename);
+            }
+        } catch (e) {
+            console.warn('[NativeAudioRoute] Error starting ringback', e);
+        }
+    },
+    startRingtone: (filename: string) => {
+        try {
+            if (AudioRouteModule && AudioRouteModule.startRingtone) {
+                AudioRouteModule.startRingtone(filename);
+            }
+        } catch (e) {
+            console.warn('[NativeAudioRoute] Error starting ringtone', e);
+        }
+    },
+    stopTones: () => {
+        try {
+            if (AudioRouteModule && AudioRouteModule.stopTones) {
+                AudioRouteModule.stopTones();
+            }
+        } catch (e) {
+            console.warn('[NativeAudioRoute] Error stopping tones', e);
+        }
     }
 };

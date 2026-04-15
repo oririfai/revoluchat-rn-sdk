@@ -26,6 +26,7 @@ export const useCallControls = () => {
     const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [callDuration, setCallDuration] = useState(0);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const callTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const socketClient = DI.socketClient;
 
@@ -50,6 +51,13 @@ export const useCallControls = () => {
         }, 1000);
     }, [stopTimer]);
 
+    const stopCallTimeout = useCallback(() => {
+        if (callTimeoutRef.current) {
+            clearTimeout(callTimeoutRef.current);
+            callTimeoutRef.current = null;
+        }
+    }, []);
+
     const resetState = useCallback(() => {
         setRemoteStream(null);
         setLocalStream(null);
@@ -66,6 +74,7 @@ export const useCallControls = () => {
         hasCleanedUp.current = true;
         NativeAudioRoute.stop();
         stopTimer();
+        stopCallTimeout();
         rtcRef.current?.close();
         rtcRef.current = null;
         localStreamRef.current?.getTracks().forEach(track => track.stop());
@@ -76,7 +85,7 @@ export const useCallControls = () => {
         } else {
             setTimeout(resetState, 2000);
         }
-    }, [stopTimer, resetState]);
+    }, [stopTimer, stopCallTimeout, resetState]);
 
     const finishCall = useCallback((finalStatus: 'completed' | 'rejected') => {
         setActiveCall(prev => prev ? { ...prev, status: finalStatus } : prev);
@@ -130,13 +139,21 @@ export const useCallControls = () => {
             setIsLoudspeaker(shouldLoudspeaker);
             NativeAudioRoute.setSpeakerphoneOn(shouldLoudspeaker);
 
-            const stream = await mediaDevices.getUserMedia({
-                audio: true,
-                video: type === 'video'
-            }) as MediaStream;
-
-            localStreamRef.current = stream;
-            setLocalStream(stream);
+            // CRITICAL FIX: DO NOT CAPTURE AUDIO DURING DIALING!
+            // If we capture audio, WebRTC's AudioDeviceModule initializes immediately
+            // and forcefully suppresses all MediaPlayer output (destroying our ringback).
+            // We only capture video if it's a video call, to show the local preview.
+            if (type === 'video') {
+                const stream = await mediaDevices.getUserMedia({
+                    audio: false,
+                    video: true
+                }) as MediaStream;
+                localStreamRef.current = stream;
+                setLocalStream(stream);
+            } else {
+                localStreamRef.current = null;
+                setLocalStream(null);
+            }
 
             const resp = await socketClient.sendCallSignal(conversationId, 'call:request', {
                 type,
@@ -155,9 +172,10 @@ export const useCallControls = () => {
 
             setActiveCall(newCall);
 
-            // Setup RTC and add stream — offer sent when call:accepted arrives
-            await setupRTC(newCall);
-            rtcRef.current?.addStream(stream);
+            // We DELAY setupRTC and addStream until the receiver actually accepts!
+            // This prevents react-native-webrtc from hijacking the Android Audio Focus
+            // and muting our ringback sound.
+            NativeAudioRoute.startRingback('incallmanager_ringback');
             console.log('[useCallControls] CALLER ready. Waiting for receiver...');
 
         } catch (error) {
@@ -207,6 +225,9 @@ export const useCallControls = () => {
 
             setActiveCall(updatedCall);
 
+            // Stop Ringtone before connecting
+            NativeAudioRoute.stopTones();
+
             // This triggers the caller to send the offer
             await socketClient.sendUserSignal('call:respond', {
                 call_id: activeCall.id,
@@ -244,6 +265,38 @@ export const useCallControls = () => {
             console.error('[useCallControls] Hangup signal failed', error);
         }
     }, [activeCall, socketClient, finishCall]);
+
+    const startCallTimeout = useCallback(() => {
+        stopCallTimeout();
+        console.log('[useCallControls] Starting unanswered call timeout (60s)');
+        callTimeoutRef.current = setTimeout(() => {
+            const currentCall = activeCallRef.current;
+            if (currentCall && (currentCall.status === 'dialing' || currentCall.status === 'ringing')) {
+                console.log('[useCallControls] Call timeout reached, closing call...');
+                
+                // Direct termination logic using latest refs to avoid stale closures
+                const myId = userId ? parseInt(userId) : 0;
+                const isCaller = currentCall.callerId === myId;
+                
+                if (isCaller) {
+                    // Implicit hangup
+                    setActiveCall(prev => prev ? { ...prev, status: 'completed' } : prev);
+                    cleanup(false);
+                    socketClient.sendCallSignal(currentCall.conversationId, 'call:hangup', { 
+                        call_id: currentCall.id 
+                    }).catch(err => console.error('[useCallControls] Timeout hangup failed', err));
+                } else {
+                    // Implicit reject
+                    setActiveCall(prev => prev ? { ...prev, status: 'rejected' } : prev);
+                    cleanup(false);
+                    socketClient.sendUserSignal('call:respond', {
+                        call_id: currentCall.id,
+                        response: 'reject'
+                    }).catch(err => console.error('[useCallControls] Timeout reject failed', err));
+                }
+            }
+        }, 60000);
+    }, [cleanup, setActiveCall, socketClient, stopCallTimeout, userId]);
 
     const toggleMute = useCallback(() => {
         if (!localStream) return;
@@ -292,6 +345,7 @@ export const useCallControls = () => {
     useEffect(() => {
         if (!activeCall) {
             if (!hasCleanedUp.current) cleanup(true);
+            stopCallTimeout();
             return;
         } else {
             // NEW CALL starts -> reset the cleanup flag so we can process events!
@@ -299,15 +353,29 @@ export const useCallControls = () => {
         }
 
         if (activeCall.status === 'connected') {
+            stopCallTimeout();
+            NativeAudioRoute.stopTones();
+            
             if (!timerRef.current && activeCall.startedAt) {
                 // Determine synchronization timestamp
                 const syncStamp = activeCall.startedAt.getTime ? activeCall.startedAt.getTime() : new Date(activeCall.startedAt).getTime();
                 startTimer(syncStamp);
             }
+        } else if (activeCall.status === 'dialing' || activeCall.status === 'ringing') {
+            if (!callTimeoutRef.current) {
+                startCallTimeout();
+            }
+            
+            // If I am the receiver, start the ringtone
+            const myId = userId ? parseInt(userId) : 0;
+            if (activeCall.receiverId === myId) {
+                NativeAudioRoute.startRingtone('incallmanager_ringtone');
+            }
         } else {
             stopTimer();
+            stopCallTimeout();
         }
-    }, [activeCall?.status, activeCall?.id, cleanup, startTimer, stopTimer]);
+    }, [activeCall?.status, activeCall?.id, cleanup, startTimer, stopTimer, startCallTimeout, stopCallTimeout]);
 
     // 3. WebRTC Signaling Listener (stable, does not re-subscribe on every activeCall change)
     useEffect(() => {
@@ -325,6 +393,7 @@ export const useCallControls = () => {
             console.log(`[useCallControls] Event: ${event}, Match: ${isIdMatch}`);
 
             if (event === 'call:accepted') {
+                NativeAudioRoute.stopTones();
                 setActiveCall((prev) => prev ? { ...prev, status: 'connected', startedAt: new Date() } : prev);
 
                 const myId = userId ? parseInt(userId) : 0;
@@ -332,10 +401,24 @@ export const useCallControls = () => {
                 console.log(`[useCallControls] I am the CALLER? ${dynamicIsCaller} (MyId: ${myId}, CallerId: ${call.callerId})`);
 
                 // CALLER: receiver accepted → create and send offer via user channel directly to receiver
-                if (dynamicIsCaller && rtcRef.current) {
-                    console.log('[useCallControls] CALLER: Creating offer after accept...');
+                if (dynamicIsCaller) {
+                    console.log('[useCallControls] CALLER: Receiver accepted. Setting up RTC now...');
+                    
                     try {
-                        const offer = await rtcRef.current.createOffer();
+                        // NOW we capture the REAL full stream (Audio + Video) securely
+                        const finalStream = await mediaDevices.getUserMedia({
+                            audio: true,
+                            video: call.type === 'video'
+                        }) as MediaStream;
+                        
+                        localStreamRef.current = finalStream;
+                        setLocalStream(finalStream);
+
+                        // Initialize RTC ONLY NOW to avoid Audio Focus hijack during ringback
+                        await setupRTC(call);
+                        rtcRef.current?.addStream(finalStream);
+                        
+                        const offer = await rtcRef.current!.createOffer();
                         // Send offer directly to receiver's user channel
                         await socketClient.sendCallSignal(call.conversationId, 'call:signal', {
                             call_id: call.id,

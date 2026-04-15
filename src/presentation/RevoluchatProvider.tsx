@@ -11,6 +11,7 @@ interface RevoluchatContextType {
   userId: string;
   connectionStatus: string;
   theme: RevoluchatTheme;
+  tier: 'basic' | 'standard' | 'pro';
 }
 
 const RevoluchatContext = createContext<RevoluchatContextType | undefined>(undefined);
@@ -47,8 +48,10 @@ export const RevoluchatProvider: React.FC<RevoluchatProviderProps> = ({
     };
   }, [client, config, userId]);
 
+  const tier = config.tier || 'pro'; // Default to pro for existing users
+
   return (
-    <RevoluchatContext.Provider value={{ client, userId, connectionStatus, theme }}>
+    <RevoluchatContext.Provider value={{ client, userId, connectionStatus, theme, tier }}>
       <CallProvider>
         {children}
         <CallModal />

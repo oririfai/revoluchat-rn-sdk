@@ -19,8 +19,8 @@ export class ChatRepositoryImpl implements ChatRepository {
         this.socketClient.disconnect();
     }
 
-    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }> {
-        return this.socketClient.joinRoom(roomId, onMessage, undefined, onReadReceipt, force);
+    joinRoom(roomId: string, onMessage: (msg: any) => void, onReadReceipt?: (payload: any) => void, onMessageDeleted?: (payload: any) => void, force?: boolean): Promise<{ channel: PhoenixChannel; messages: any[] }> {
+        return this.socketClient.joinRoom(roomId, onMessage, undefined, onReadReceipt, onMessageDeleted, force);
     }
 
     leaveRoom(roomId: string): void {
@@ -33,6 +33,10 @@ export class ChatRepositoryImpl implements ChatRepository {
 
     markAsRead(roomId: string, messageId: string): void {
         this.socketClient.markAsRead(roomId, messageId);
+    }
+
+    deleteMessage(roomId: string, messageId: string): void {
+        this.socketClient.deleteMessage(roomId, messageId);
     }
 
     getPresences(roomId: string): any[] {
@@ -151,6 +155,39 @@ export class ChatRepositoryImpl implements ChatRepository {
         const data = await response.json();
         const conversations = data.conversations || [];
         return conversations.map((c: any) => ChannelMapper.mapPayloadToChannel(c));
+    }
+
+    async getMessages(
+        config: TenantConfig,
+        roomId: string,
+        opts?: { before_id?: string; limit?: number; search?: string }
+    ): Promise<any> {
+        let url = `${config.baseUrl}/api/v1/conversations/${roomId}/messages`;
+        const params = new URLSearchParams();
+        
+        if (opts?.before_id) params.append('before_id', opts.before_id);
+        if (opts?.limit) params.append('limit', opts.limit.toString());
+        if (opts?.search) params.append('search', opts.search);
+
+        if (params.toString()) {
+            url += `?${params.toString()}`;
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${config.authToken}`,
+                'X-API-KEY': config.apiKey,
+                'x-tenant-id': config.tenantId,
+                'x-app-id': config.appId
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`getMessages failed: ${response.statusText} - ${errorText}`);
+        }
+
+        return await response.json();
     }
 
     async getContacts(

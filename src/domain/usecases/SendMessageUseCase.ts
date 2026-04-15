@@ -6,18 +6,20 @@ interface SendMessageParams {
     text: string;
     userId: string;
     attachmentId?: string;
+    replyToId?: string;
     type?: string;
 }
 
 export class SendMessageUseCase implements UseCase<void, SendMessageParams> {
     constructor(private chatRepository: ChatRepository) { }
 
-    async execute({ roomId, text, userId, attachmentId, type = "text" }: SendMessageParams): Promise<void> {
+    async execute({ roomId, text, userId, attachmentId, replyToId, type = "text" }: SendMessageParams): Promise<void> {
         const messagePayload = {
             body: text,
             user_id: userId,
             type: type,
             attachment_id: attachmentId,
+            reply_to_id: replyToId,
             sent_at: new Date().toISOString(),
         };
 

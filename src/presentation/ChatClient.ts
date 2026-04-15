@@ -71,6 +71,10 @@ export class ChatClient {
         }
     }
 
+    public isInitialized(): boolean {
+        return !!this.config && !!this.userId;
+    }
+
     public async fetchRTCConfig(): Promise<void> {
         try {
             const data = await this.socketClient.getRTCConfig();
@@ -191,25 +195,57 @@ export class ChatClient {
         });
     }
 
-    public async sendMessage(roomId: string, text: string): Promise<void> {
+    public async sendMessage(roomId: string, text: string, replyToId?: string): Promise<void> {
         if (!this.userId) throw new Error('Client not initialized');
-        await this.sendMessageUseCase.execute({ roomId, text, userId: this.userId });
+        await this.sendMessageUseCase.execute({ roomId, text, userId: this.userId, replyToId });
     }
 
     public async sendAttachments(
         roomId: string,
         files: { uri: string; name: string; type: string }[],
-        text?: string
+        text?: string,
+        replyToId?: string
     ): Promise<void> {
         if (!this.config || !this.userId) throw new Error('Client not initialized');
-        return this.sendAttachmentUseCase.execute({ roomId, files, config: this.config, userId: this.userId, text });
+        return this.sendAttachmentUseCase.execute({ roomId, files, config: this.config, userId: this.userId, text, replyToId });
     }
 
     public async getConversations(search?: string): Promise<any> {
         if (!this.config || !this.userId) throw new Error('Client not initialized');
-        const channels = await this.getConversationsUseCase.execute({ config: this.config, currentUserId: this.userId, search });
-        useChatStore.getState().setChannels(channels);
-        return channels;
+        try {
+            const channels = await this.getConversationsUseCase.execute({ config: this.config, currentUserId: this.userId, search });
+            console.log(`[Revoluchat SDK] Fetched ${channels?.length || 0} channels`);
+            useChatStore.getState().setChannels(channels);
+            return channels;
+        } catch (error) {
+            console.error('[Revoluchat SDK] Failed to fetch conversations:', error);
+            throw error;
+        }
+    }
+
+    public async loadMoreMessages(roomId: string, search?: string): Promise<boolean> {
+        if (!this.config) throw new Error('Client not initialized');
+        
+        const store = useChatStore.getState();
+        const messages = store.messagesByChannel[roomId] || [];
+        const beforeId = messages.length > 0 ? messages[0].id : undefined;
+
+        try {
+            const data = await this.getMessages(roomId, { before_id: beforeId, search });
+            const historicalMessages = data.messages.map((m: any) => MessageMapper.mapPayloadToMessage(m, roomId));
+            
+            store.prependMessages(roomId, historicalMessages, data.has_more);
+            return data.has_more;
+        } catch (error) {
+            console.error('[Revoluchat SDK] Failed to load more messages', error);
+            return false;
+        }
+    }
+
+    public async getMessages(roomId: string, opts?: { before_id?: string; limit?: number; search?: string }): Promise<any> {
+        if (!this.config) throw new Error('Client not initialized');
+        // We use repository directly for historical REST fetching
+        return DI.repository.getMessages(this.config, roomId, opts);
     }
 
     public async getContacts(): Promise<any> {
@@ -237,8 +273,21 @@ export class ChatClient {
         this.markAsReadUseCase.execute({ roomId, messageId });
     }
 
+    public deleteMessage(roomId: string, messageId: string): void {
+        this.socketClient.deleteMessage(roomId, messageId);
+    }
+
+    public sendTypingStatus(roomId: string, typing: boolean): void {
+        this.socketClient.sendTypingStatus(roomId, typing);
+    }
+
     public disconnect(): void {
         this.socketClient.disconnect();
         useChatStore.getState().setConnectionStatus('disconnected');
+    }
+
+    public logout(): void {
+        this.disconnect();
+        useChatStore.getState().clearAll();
     }
 }

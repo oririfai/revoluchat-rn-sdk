@@ -15,7 +15,8 @@ export class ChatSocketClient {
     private roomCallbacks: Map<string, { 
         onMessage: (msg: any) => void; 
         onCall?: (event: string, payload: any) => void; 
-        onReadReceipt?: (payload: any) => void 
+        onReadReceipt?: (payload: any) => void;
+        onMessageDeleted?: (payload: any) => void;
     }> = new Map();
     private globalCallListeners: Set<(event: string, payload: any) => void> = new Set();
     private lastCallEvent: { id: string, event: string, time: number } | null = null;
@@ -186,10 +187,10 @@ export class ChatSocketClient {
             config.onSessionExpired?.();
         }
     }
-    public joinRoom(roomId: string, onMessage: (msg: any) => void, onCall?: (event: string, payload: any) => void, onReadReceipt?: (payload: any) => void, force?: boolean): Promise<{ channel: Channel; messages: any[] }> {
+    public joinRoom(roomId: string, onMessage: (msg: any) => void, onCall?: (event: string, payload: any) => void, onReadReceipt?: (payload: any) => void, onMessageDeleted?: (payload: any) => void, force?: boolean): Promise<{ channel: Channel; messages: any[] }> {
         // ALWAYS update the callbacks for this room, even if already joined
         this.roomChannels.get(roomId);
-        this.roomCallbacks.set(roomId, { onMessage, onCall, onReadReceipt });
+        this.roomCallbacks.set(roomId, { onMessage, onCall, onReadReceipt, onMessageDeleted });
 
         // If already joined and NOT forcing a refresh, return resolved promise
         if (this.roomChannels.has(roomId) && !force) {
@@ -260,8 +261,18 @@ export class ChatSocketClient {
  
                  callEvents.forEach(event => {
                      roomChannel.on(event, (payload) => {
+                        console.log(`[Revoluchat SDK] roomChannel -> Global Call Event [${event}]:`, payload);
                         const callbacks = this.roomCallbacks.get(roomId);
                         if (callbacks && callbacks.onCall) callbacks.onCall(event, payload);
+
+                        // CRITICAL REDUNDANCY:
+                        // If the receiver is currently in the room, they might receive the call:incoming
+                        // here first. The userChannel might drop or get delayed.
+                        // We must immediately push this to the userChannelCallback to guarantee 
+                        // ChatClient sets up the activeCall!
+                        if (this.userChannelCallback) {
+                            this.userChannelCallback({ type: 'call_event', event, payload });
+                        }
 
                         // Notify global listeners with deduplication
                         this.notifyGlobalCall(event, payload);
@@ -277,6 +288,13 @@ export class ChatSocketClient {
                             message_id: payload.message_id?.toString()
                         };
                         callbacks.onReadReceipt(receipt);
+                    }
+                });
+
+                roomChannel.on('message_deleted', payload => {
+                    const callbacks = this.roomCallbacks.get(roomId);
+                    if (callbacks && callbacks.onMessageDeleted) {
+                        callbacks.onMessageDeleted(payload);
                     }
                 });
             };
@@ -334,6 +352,20 @@ export class ChatSocketClient {
         const channel = this.roomChannels.get(roomId);
         if (channel) {
             channel.push('mark_read', { message_id: messageId });
+        }
+    }
+
+    public deleteMessage(roomId: string, messageId: string): void {
+        const roomChannel = this.roomChannels.get(roomId);
+        if (roomChannel) {
+            roomChannel.push('delete_message', { message_id: messageId });
+        }
+    }
+
+    public sendTypingStatus(roomId: string, typing: boolean): void {
+        const roomChannel = this.roomChannels.get(roomId);
+        if (roomChannel) {
+            roomChannel.push(typing ? 'typing_start' : 'typing_stop', {});
         }
     }
 

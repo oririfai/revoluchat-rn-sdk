@@ -56,6 +56,7 @@ export const Avatar: React.FC<AvatarProps> = ({
                 color: theme.colors.textSecondary,
                 fontSize: size * 0.4,
                 fontWeight: theme.typography.fontWeightBold,
+                fontFamily: theme.typography.fontFamily,
               },
             ]}
           >

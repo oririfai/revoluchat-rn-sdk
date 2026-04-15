@@ -39,6 +39,12 @@ export class JoinRoomUseCase implements UseCase<void, JoinRoomParams> {
                     store.updateMessageStatus(roomId, receipt.message_id, 'read');
                 }
             },
+            (payload: any) => {
+                if (payload.message_id) {
+                    const deletedAt = payload.deleted_at ? new Date(payload.deleted_at) : new Date();
+                    store.markMessageAsDeleted(roomId, payload.message_id.toString(), deletedAt);
+                }
+            },
             force
         );
   
